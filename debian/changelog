@@ -1,3 +1,13 @@
+lttng-modules (2.9.3-1) unstable; urgency=medium
+
+  * [0f7109e] New upstream version 2.9.2
+  * [0ad5f83] Do not consider rc versions in watch file
+  * [d00dd27] New upstream version 2.9.3
+  * [e82c47f] Bump standards version to 4.0.0, no changes necessary
+  * [6f4c281] Add support for kernel 4.12
+
+ -- Michael Jeanson <mjeanson@ubuntu.com>  Fri, 30 Jun 2017 15:27:08 -0400
+
 lttng-modules (2.9.1-1) unstable; urgency=medium
 
   * [2b5c32e] New upstream version 2.9.1
