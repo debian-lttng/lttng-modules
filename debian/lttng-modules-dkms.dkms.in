@@ -246,7 +246,8 @@ if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_KRETPROBES" ]; then
    i=$((i+1))
 fi
 
-if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_DYNAMIC_FTRACE" ]; then
+if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_DYNAMIC_FTRACE" ] && \
+   ( [ "$VERSION" -eq 4 -a "$PATCHLEVEL" -lt 12 ] || [ "$VERSION" -lt 4 ] ); then
    BUILT_MODULE_NAME[$i]="lttng-ftrace"
    BUILT_MODULE_LOCATION[$i]="probes/"
    DEST_MODULE_LOCATION[$i]="/extra/probes"
