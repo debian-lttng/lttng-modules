@@ -1,0 +1,91 @@
+From 31964a955d12429de00321d1670b1bc0daf015c7 Mon Sep 17 00:00:00 2001
+From: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+Date: Tue, 26 May 2015 15:22:01 -0400
+Subject: [PATCH 2/2] Fix: remove regmap instrumentation for kernels < 4.1
+
+Modifications to regmap.h instrumentation in mainline Linux kernel has
+been no less than erratic. First, the public instrumentation header
+regmap.h include a private driver header in Linux 4.0. Then, regmap.h
+is moved to the private driver directory in Linux 4.1. To make things
+worse, the 4.0 commit has been picked into stable branches of the Linux
+kernel.
+
+Since this does not appear to be an instrumentation of utmost
+importance, only build this instrumentation probe if the private header
+is found in the driver directory (need full kernel sources).
+
+This removes regmap instrumentation for older kernels.
+
+Signed-off-by: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+---
+ instrumentation/events/lttng-module/regmap.h | 4 ----
+ probes/Makefile                              | 9 ++++++---
+ probes/lttng-probe-regmap.c                  | 5 ++++-
+ 3 files changed, 10 insertions(+), 8 deletions(-)
+
+--- a/instrumentation/events/lttng-module/regmap.h
++++ b/instrumentation/events/lttng-module/regmap.h
+@@ -59,7 +59,6 @@
+ 
+ )
+ 
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0))
+ DEFINE_EVENT(regmap_reg, regmap_reg_read_cache,
+ 
+ 	TP_PROTO(struct device *dev, unsigned int reg,
+@@ -68,7 +67,6 @@
+ 	TP_ARGS(dev, reg, val)
+ 
+ )
+-#endif
+ 
+ DECLARE_EVENT_CLASS(regmap_block,
+ 
+@@ -144,7 +142,6 @@
+ 		  __get_str(type), __get_str(status))
+ )
+ 
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0))
+ DECLARE_EVENT_CLASS(regmap_bool,
+ 
+ 	TP_PROTO(struct device *dev, bool flag),
+@@ -180,7 +177,6 @@
+ 	TP_ARGS(dev, flag)
+ 
+ )
+-#endif
+ 
+ #endif /* _TRACE_REGMAP_H */
+ 
+--- a/probes/Makefile
++++ b/probes/Makefile
+@@ -184,9 +184,12 @@
+ 		echo "lttng-probe-rcu.o" ; fi;)
+ 
+ ifneq ($(CONFIG_REGMAP),)
+-obj-m +=  $(shell \
+-	if [ $(VERSION) -ge 3 -a $(PATCHLEVEL) -ge 2 ] ; then \
+-		echo "lttng-probe-regmap.o" ; fi;)
++regmap_dep_4_1 = $(srctree)/drivers/base/regmap/trace.h
++ifneq ($(wildcard $(regmap_dep_4_1)),)
++obj-m += lttng-probe-regmap.o
++else
++$(warning File $(regmap_dep_4_1) not found. Probe "regmap" is disabled. Need Linux 4.1+ kernel source tree to enable it.)
++endif
+ endif
+ 
+ ifneq ($(CONFIG_PM_RUNTIME),)
+--- a/probes/lttng-probe-regmap.c
++++ b/probes/lttng-probe-regmap.c
+@@ -29,7 +29,10 @@
+  * Create the tracepoint static inlines from the kernel to validate that our
+  * trace event macros match the kernel we run on.
+  */
+-#include <trace/events/regmap.h>
++#include <../../drivers/base/regmap/trace.h>
++
++#undef TRACE_INCLUDE_PATH
++#undef TRACE_INCLUDE_FILE
+ 
+ /*
+  * Create LTTng tracepoint probes.

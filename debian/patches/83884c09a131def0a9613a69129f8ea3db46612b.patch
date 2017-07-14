@@ -1,0 +1,21 @@
+From 83884c09a131def0a9613a69129f8ea3db46612b Mon Sep 17 00:00:00 2001
+From: Michael Jeanson <mjeanson@efficios.com>
+Date: Thu, 5 May 2016 16:10:36 -0400
+Subject: [PATCH] Fix: mm_page_alloc_extfrag instrumentation for kernel 3.16.35
+
+Signed-off-by: Michael Jeanson <mjeanson@efficios.com>
+Signed-off-by: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+---
+ instrumentation/events/lttng-module/kmem.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/instrumentation/events/lttng-module/kmem.h
++++ b/instrumentation/events/lttng-module/kmem.h
+@@ -288,6 +288,7 @@
+ 
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,2)	\
+ 	|| LTTNG_KERNEL_RANGE(3,14,36, 3,15,0)		\
++	|| LTTNG_KERNEL_RANGE(3,16,35, 3,17,0)		\
+ 	|| LTTNG_UBUNTU_KERNEL_RANGE(3,13,0,50, 3,14,0,0)	\
+ 	|| LTTNG_UBUNTU_KERNEL_RANGE(3,16,0,38, 3,17,0,0)	\
+ 	|| LTTNG_DEBIAN_KERNEL_RANGE(3,16,7,9,0,0, 3,17,0,0,0,0))

@@ -158,13 +158,6 @@ BUILT_MODULE_LOCATION[$i]="probes/"
 DEST_MODULE_LOCATION[$i]="/extra/probes"
 i=$((i+1))
 
-if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_REGMAP" ]; then
-    BUILT_MODULE_NAME[$i]="lttng-probe-regmap"
-    BUILT_MODULE_LOCATION[$i]="probes/"
-    DEST_MODULE_LOCATION[$i]="/extra/probes"
-    i=$((i+1))
-fi
-
 if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_REGULATOR" ]; then
     BUILT_MODULE_NAME[$i]="lttng-probe-regulator"
     BUILT_MODULE_LOCATION[$i]="probes/"

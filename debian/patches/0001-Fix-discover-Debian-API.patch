@@ -1,0 +1,257 @@
+From 0aadd8424c7c21259f80da4c97a2b9fef92bd2e9 Mon Sep 17 00:00:00 2001
+From: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+Date: Mon, 27 Apr 2015 10:57:34 -0400
+Subject: [PATCH 1/2] Fix: discover Debian API
+
+Signed-off-by: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+---
+ Makefile                                   | 12 ++--
+ Makefile.ABI.workarounds                   | 11 ++++
+ abi-debian-version.sh                      | 30 ++++++++++
+ instrumentation/events/lttng-module/kmem.h | 91 +++++++++++++++++++++++++++++-
+ lib/Makefile                               |  4 ++
+ lttng-kernel-version.h                     | 14 +++++
+ probes/Makefile                            |  4 ++
+ 7 files changed, 161 insertions(+), 5 deletions(-)
+ create mode 100644 Makefile.ABI.workarounds
+ create mode 100755 abi-debian-version.sh
+
+--- a/Makefile
++++ b/Makefile
+@@ -5,6 +5,8 @@
+ ifneq ($(KERNELRELEASE),)
+ ifneq ($(CONFIG_TRACEPOINTS),)
+ 
++KERNELDIR=${LTTNG_KERNELDIR}
++
+ lttng_check_linux_version = $(shell pwd)/include/linux/version.h
+ lttng_check_generated_linux_version = $(shell pwd)/include/generated/uapi/linux/version.h
+ 
+@@ -19,6 +21,8 @@
+ endif
+ endif
+ 
++include $(KBUILD_EXTMOD)/Makefile.ABI.workarounds
++
+ obj-m += lttng-ring-buffer-client-discard.o
+ obj-m += lttng-ring-buffer-client-overwrite.o
+ obj-m += lttng-ring-buffer-metadata-client.o
+@@ -67,14 +71,14 @@
+ 	CFLAGS = $(EXTCFLAGS)
+ 
+ default:
+-	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
++	LTTNG_KERNELDIR=$(KERNELDIR) $(MAKE) -C $(KERNELDIR) M=$(PWD) modules
+ 
+ modules_install:
+-	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules_install
++	LTTNG_KERNELDIR=$(KERNELDIR) $(MAKE) -C $(KERNELDIR) M=$(PWD) modules_install
+ 
+ clean:
+-	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
++	LTTNG_KERNELDIR=$(KERNELDIR) $(MAKE) -C $(KERNELDIR) M=$(PWD) clean
+ 
+ %.i: %.c
+-	$(MAKE) -C $(KERNELDIR) M=$(PWD) $@
++	LTTNG_KERNELDIR=$(KERNELDIR) $(MAKE) -C $(KERNELDIR) M=$(PWD) $@
+ endif # KERNELRELEASE
+--- /dev/null
++++ b/Makefile.ABI.workarounds
+@@ -0,0 +1,11 @@
++# Work-around for distro-specific public modules ABI breakages.
++# Some distributions break the public module instrumentation ABI
++# compared to upstream stable kernels without providing other mean than
++# the kernel EXTRAVERSION to figure it out. Translate this information
++# into a define visible from the C preprocessor.
++
++DEB_API_VERSION=$(shell $(KBUILD_EXTMOD)/abi-debian-version.sh $(CURDIR))
++
++ifneq ($(DEB_API_VERSION), 0)
++ccflags-y += -DDEBIAN_API_VERSION=$(DEB_API_VERSION)
++endif
+--- /dev/null
++++ b/abi-debian-version.sh
+@@ -0,0 +1,39 @@
++#!/bin/sh
++
++# First argument is the path to the kernel headers.
++KPATH=$1
++
++if [ ! -f ${KPATH}/include/generated/package.h ]; then
++	echo 0
++	exit 0
++fi
++
++# Debian snippet courtesy of Ben Hutchings
++
++# Assuming KPATH is the target kernel headers directory
++DEB_PACKAGE_VERSION=$(sed -rn 's/^#define LINUX_PACKAGE_ID " Debian (.*)"/\1/p' ${KPATH}/include/generated/package.h)
++# Ignore backports part
++DEB_PACKAGE_VERSION=$(echo ${DEB_PACKAGE_VERSION} | sed -r 's/~(bpo|deb).*//')
++# Get -ckt update number, if present
++KERNEL_CKT_UPDATE=$(echo ${DEB_PACKAGE_VERSION} | sed -rn 's/^[0-9]+\.[0-9]+\.[0-9]+-ckt([0-9]+).*/\1/p')
++
++# Only care about the rest if it is a -ckt kernel, making sure we do not
++# clash with older Debian kernels (e.g. Debian 3.2.65-1+deb7u2).
++if [ -z "${KERNEL_CKT_UPDATE}" ]; then
++	echo 0
++	exit 0
++fi
++
++# Get package revision
++DEB_PACKAGE_REVISION=$(echo ${DEB_PACKAGE_VERSION} | sed -r 's/.*-([^-]+)$/\1/')
++# Get non-sec update number
++DEB_PACKAGE_REVISION_BASE=$(echo ${DEB_PACKAGE_REVISION} | sed -r 's/^([0-9]+).*/\1/')
++# Get security update number, if present
++#DEB_PACKAGE_REVISION_SECURITY=$(echo ${DEB_PACKAGE_REVISION} | sed -rn 's/.*\+(squeeze|deb[0-9])+u([0-9]+)$/\1/p')
++test -n "${DEB_PACKAGE_REVISION_SECURITY}" || DEB_PACKAGE_REVISION_SECURITY=0
++# Combine all update numbers into one
++DEB_API_VERSION=$((KERNEL_CKT_UPDATE * 10000 + DEB_PACKAGE_REVISION_BASE * 100 + DEB_PACKAGE_REVISION_SECURITY))
++
++echo "KPATH: $KPATH API: $DEB_API_VERSION" >> /tmp/abi-debian
++
++echo ${DEB_API_VERSION}
+--- a/instrumentation/events/lttng-module/kmem.h
++++ b/instrumentation/events/lttng-module/kmem.h
+@@ -286,7 +286,96 @@
+ 		__entry->order, __entry->migratetype)
+ )
+ 
+-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,0))
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,2)	\
++	|| LTTNG_KERNEL_RANGE(3,14,36, 3,15,0)		\
++	|| LTTNG_UBUNTU_KERNEL_RANGE(3,13,0,50, 3,14,0,0)	\
++	|| LTTNG_UBUNTU_KERNEL_RANGE(3,16,0,38, 3,17,0,0)	\
++	|| LTTNG_DEBIAN_KERNEL_RANGE(3,16,7,9,0,0, 3,17,0,0,0,0))
++
++TRACE_EVENT(mm_page_alloc_extfrag,
++
++	TP_PROTO(struct page *page,
++		int alloc_order, int fallback_order,
++		int alloc_migratetype, int fallback_migratetype),
++
++	TP_ARGS(page,
++		alloc_order, fallback_order,
++		alloc_migratetype, fallback_migratetype),
++
++	TP_STRUCT__entry(
++		__field_hex(	struct page *,	page			)
++		__field(	int,		alloc_order		)
++		__field(	int,		fallback_order		)
++		__field(	int,		alloc_migratetype	)
++		__field(	int,		fallback_migratetype	)
++		__field(	int,		change_ownership	)
++	),
++
++	TP_fast_assign(
++		tp_assign(page, page)
++		tp_assign(alloc_order, alloc_order)
++		tp_assign(fallback_order, fallback_order)
++		tp_assign(alloc_migratetype, alloc_migratetype)
++		tp_assign(fallback_migratetype, fallback_migratetype)
++		tp_assign(change_ownership,
++			(alloc_migratetype == get_pageblock_migratetype(page)))
++	),
++
++	TP_printk("page=%p pfn=%lu alloc_order=%d fallback_order=%d pageblock_order=%d alloc_migratetype=%d fallback_migratetype=%d fragmenting=%d change_ownership=%d",
++		__entry->page,
++		page_to_pfn(__entry->page),
++		__entry->alloc_order,
++		__entry->fallback_order,
++		pageblock_order,
++		__entry->alloc_migratetype,
++		__entry->fallback_migratetype,
++		__entry->fallback_order < pageblock_order,
++		__entry->change_ownership)
++)
++
++#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,30))
++
++TRACE_EVENT(mm_page_alloc_extfrag,
++
++	TP_PROTO(struct page *page,
++		int alloc_order, int fallback_order,
++		int alloc_migratetype, int fallback_migratetype, int new_migratetype),
++
++	TP_ARGS(page,
++		alloc_order, fallback_order,
++		alloc_migratetype, fallback_migratetype, new_migratetype),
++
++	TP_STRUCT__entry(
++		__field_hex(	struct page *,	page			)
++		__field(	int,		alloc_order		)
++		__field(	int,		fallback_order		)
++		__field(	int,		alloc_migratetype	)
++		__field(	int,		fallback_migratetype	)
++		__field(	int,		change_ownership	)
++	),
++
++	TP_fast_assign(
++		tp_assign(page, page)
++		tp_assign(alloc_order, alloc_order)
++		tp_assign(fallback_order, fallback_order)
++		tp_assign(alloc_migratetype, alloc_migratetype)
++		tp_assign(fallback_migratetype, fallback_migratetype)
++		tp_assign(change_ownership, (new_migratetype == alloc_migratetype))
++	),
++
++	TP_printk("page=%p pfn=%lu alloc_order=%d fallback_order=%d pageblock_order=%d alloc_migratetype=%d fallback_migratetype=%d fragmenting=%d change_ownership=%d",
++		__entry->page,
++		page_to_pfn(__entry->page),
++		__entry->alloc_order,
++		__entry->fallback_order,
++		pageblock_order,
++		__entry->alloc_migratetype,
++		__entry->fallback_migratetype,
++		__entry->fallback_order < pageblock_order,
++		__entry->change_ownership)
++)
++
++#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,0))
+ 
+ TRACE_EVENT(mm_page_alloc_extfrag,
+ 
+--- a/lib/Makefile
++++ b/lib/Makefile
+@@ -1,3 +1,7 @@
++KERNELDIR=${LTTNG_KERNELDIR}
++
++include $(KBUILD_EXTMOD)/Makefile.ABI.workarounds
++
+ obj-m += lttng-lib-ring-buffer.o
+ 
+ lttng-lib-ring-buffer-objs := \
+--- a/lttng-kernel-version.h
++++ b/lttng-kernel-version.h
+@@ -48,4 +48,18 @@
+ 		LTTNG_UBUNTU_VERSION_CODE < \
+ 		LTTNG_UBUNTU_KERNEL_VERSION(a_high, b_high, c_high, d_high))
+ 
++#define LTTNG_DEBIAN_KERNEL_VERSION(a, b, c, d, e, f) \
++	(((((a) << 16) + ((b) << 8) + (c)) * 1000000ULL) + ((d) * 10000) + ((e) * 100) + (f))
++
++#define LTTNG_DEBIAN_VERSION_CODE \
++	((LINUX_VERSION_CODE * 1000000ULL) + DEBIAN_API_VERSION)
++
++#define LTTNG_DEBIAN_KERNEL_RANGE(a_low, b_low, c_low, d_low, e_low, f_low, \
++		a_high, b_high, c_high, d_high, e_high, f_high) \
++	(defined(DEBIAN_API_VERSION) && \
++		LTTNG_DEBIAN_VERSION_CODE >= \
++		LTTNG_DEBIAN_KERNEL_VERSION(a_low, b_low, c_low, d_low, e_low, f_low) && \
++		LTTNG_DEBIAN_VERSION_CODE < \
++		LTTNG_DEBIAN_KERNEL_VERSION(a_high, b_high, c_high, d_high, e_high, f_high))
++
+ #endif /* _LTTNG_KERNEL_VERSION_H */
+--- a/probes/Makefile
++++ b/probes/Makefile
+@@ -5,6 +5,10 @@
+ ifneq ($(KERNELRELEASE),)
+ ifneq ($(CONFIG_TRACEPOINTS),)
+ 
++KERNELDIR=${LTTNG_KERNELDIR}
++
++include $(KBUILD_EXTMOD)/Makefile.ABI.workarounds
++
+ ccflags-y += -I$(PWD)/probes
+ obj-m += lttng-types.o
+ 
