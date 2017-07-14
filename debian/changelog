@@ -1,3 +1,10 @@
+lttng-modules (2.5.1-1+deb8u1) jessie; urgency=medium
+
+  * [3e06541] Move to DEP-14 branch naming
+  * [e891285] Fix build on newer 3.16 debian kernels
+
+ -- Michael Jeanson <mjeanson@ubuntu.com>  Fri, 14 Jul 2017 18:08:12 -0400
+
 lttng-modules (2.5.1-1) unstable; urgency=medium
 
   * [106d0a8] New upstream version 2.5.1
