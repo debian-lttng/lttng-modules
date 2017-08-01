@@ -3,27 +3,33 @@
  *
  * LTTng modules filter interpreter.
  *
- * Copyright (C) 2010-2014 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+ * Copyright (C) 2010-2016 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; only
- * version 2.1 of the License.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  */
 
 #include <linux/uaccess.h>
 #include <wrapper/frame.h>
+#include <wrapper/types.h>
 
 #include <lttng-filter.h>
+#include <lttng-string-utils.h>
 
 LTTNG_STACK_FRAME_NON_STANDARD(lttng_filter_interpret_bytecode);
 
@@ -82,6 +88,49 @@ int parse_char(struct estack_entry *reg, char *c, size_t *offset)
 }
 
 static
+char get_char_at_cb(size_t at, void *data)
+{
+	return get_char(data, at);
+}
+
+static
+int stack_star_glob_match(struct estack *stack, int top, const char *cmp_type)
+{
+	bool has_user = false;
+	mm_segment_t old_fs;
+	int result;
+	struct estack_entry *pattern_reg;
+	struct estack_entry *candidate_reg;
+
+	if (estack_bx(stack, top)->u.s.user
+			|| estack_ax(stack, top)->u.s.user) {
+		has_user = true;
+		old_fs = get_fs();
+		set_fs(KERNEL_DS);
+		pagefault_disable();
+	}
+
+	/* Find out which side is the pattern vs. the candidate. */
+	if (estack_ax(stack, top)->u.s.literal_type == ESTACK_STRING_LITERAL_TYPE_STAR_GLOB) {
+		pattern_reg = estack_ax(stack, top);
+		candidate_reg = estack_bx(stack, top);
+	} else {
+		pattern_reg = estack_bx(stack, top);
+		candidate_reg = estack_ax(stack, top);
+	}
+
+	/* Perform the match operation. */
+	result = !strutils_star_glob_match_char_cb(get_char_at_cb,
+		pattern_reg, get_char_at_cb, candidate_reg);
+	if (has_user) {
+		pagefault_enable();
+		set_fs(old_fs);
+	}
+
+	return result;
+}
+
+static
 int stack_strcmp(struct estack *stack, int top, const char *cmp_type)
 {
 	size_t offset_bx = 0, offset_ax = 0;
@@ -109,7 +158,8 @@ int stack_strcmp(struct estack *stack, int top, const char *cmp_type)
 				diff = 0;
 				break;
 			} else {
-				if (estack_ax(stack, top)->u.s.literal) {
+				if (estack_ax(stack, top)->u.s.literal_type ==
+						ESTACK_STRING_LITERAL_TYPE_PLAIN) {
 					ret = parse_char(estack_ax(stack, top),
 						&char_ax, &offset_ax);
 					if (ret == -1) {
@@ -122,7 +172,8 @@ int stack_strcmp(struct estack *stack, int top, const char *cmp_type)
 			}
 		}
 		if (unlikely(char_ax == '\0')) {
-			if (estack_bx(stack, top)->u.s.literal) {
+			if (estack_bx(stack, top)->u.s.literal_type ==
+					ESTACK_STRING_LITERAL_TYPE_PLAIN) {
 				ret = parse_char(estack_bx(stack, top),
 					&char_bx, &offset_bx);
 				if (ret == -1) {
@@ -133,7 +184,8 @@ int stack_strcmp(struct estack *stack, int top, const char *cmp_type)
 			diff = 1;
 			break;
 		}
-		if (estack_bx(stack, top)->u.s.literal) {
+		if (estack_bx(stack, top)->u.s.literal_type ==
+				ESTACK_STRING_LITERAL_TYPE_PLAIN) {
 			ret = parse_char(estack_bx(stack, top),
 				&char_bx, &offset_bx);
 			if (ret == -1) {
@@ -144,7 +196,8 @@ int stack_strcmp(struct estack *stack, int top, const char *cmp_type)
 			}
 			/* else compare both char */
 		}
-		if (estack_ax(stack, top)->u.s.literal) {
+		if (estack_ax(stack, top)->u.s.literal_type ==
+				ESTACK_STRING_LITERAL_TYPE_PLAIN) {
 			ret = parse_char(estack_ax(stack, top),
 				&char_ax, &offset_ax);
 			if (ret == -1) {
@@ -284,6 +337,10 @@ uint64_t lttng_filter_interpret_bytecode(void *filter_data,
 		[ FILTER_OP_GE_STRING ] = &&LABEL_FILTER_OP_GE_STRING,
 		[ FILTER_OP_LE_STRING ] = &&LABEL_FILTER_OP_LE_STRING,
 
+		/* globbing pattern binary comparator */
+		[ FILTER_OP_EQ_STAR_GLOB_STRING ] = &&LABEL_FILTER_OP_EQ_STAR_GLOB_STRING,
+		[ FILTER_OP_NE_STAR_GLOB_STRING ] = &&LABEL_FILTER_OP_NE_STAR_GLOB_STRING,
+
 		/* s64 binary comparator */
 		[ FILTER_OP_EQ_S64 ] = &&LABEL_FILTER_OP_EQ_S64,
 		[ FILTER_OP_NE_S64 ] = &&LABEL_FILTER_OP_NE_S64,
@@ -339,6 +396,7 @@ uint64_t lttng_filter_interpret_bytecode(void *filter_data,
 
 		/* load from immediate operand */
 		[ FILTER_OP_LOAD_STRING ] = &&LABEL_FILTER_OP_LOAD_STRING,
+		[ FILTER_OP_LOAD_STAR_GLOB_STRING ] = &&LABEL_FILTER_OP_LOAD_STAR_GLOB_STRING,
 		[ FILTER_OP_LOAD_S64 ] = &&LABEL_FILTER_OP_LOAD_S64,
 		[ FILTER_OP_LOAD_DOUBLE ] = &&LABEL_FILTER_OP_LOAD_DOUBLE,
 
@@ -460,6 +518,27 @@ uint64_t lttng_filter_interpret_bytecode(void *filter_data,
 			int res;
 
 			res = (stack_strcmp(stack, top, "<=") <= 0);
+			estack_pop(stack, top, ax, bx);
+			estack_ax_v = res;
+			next_pc += sizeof(struct binary_op);
+			PO;
+		}
+
+		OP(FILTER_OP_EQ_STAR_GLOB_STRING):
+		{
+			int res;
+
+			res = (stack_star_glob_match(stack, top, "==") == 0);
+			estack_pop(stack, top, ax, bx);
+			estack_ax_v = res;
+			next_pc += sizeof(struct binary_op);
+			PO;
+		}
+		OP(FILTER_OP_NE_STAR_GLOB_STRING):
+		{
+			int res;
+
+			res = (stack_star_glob_match(stack, top, "!=") != 0);
 			estack_pop(stack, top, ax, bx);
 			estack_ax_v = res;
 			next_pc += sizeof(struct binary_op);
@@ -648,8 +727,9 @@ uint64_t lttng_filter_interpret_bytecode(void *filter_data,
 				ret = -EINVAL;
 				goto end;
 			}
-			estack_ax(stack, top)->u.s.seq_len = UINT_MAX;
-			estack_ax(stack, top)->u.s.literal = 0;
+			estack_ax(stack, top)->u.s.seq_len = LTTNG_SIZE_MAX;
+			estack_ax(stack, top)->u.s.literal_type =
+				ESTACK_STRING_LITERAL_TYPE_NONE;
 			estack_ax(stack, top)->u.s.user = 0;
 			dbg_printk("ref load string %s\n", estack_ax(stack, top)->u.s.str);
 			next_pc += sizeof(struct load_op) + sizeof(struct field_ref);
@@ -674,7 +754,8 @@ uint64_t lttng_filter_interpret_bytecode(void *filter_data,
 				ret = -EINVAL;
 				goto end;
 			}
-			estack_ax(stack, top)->u.s.literal = 0;
+			estack_ax(stack, top)->u.s.literal_type =
+				ESTACK_STRING_LITERAL_TYPE_NONE;
 			estack_ax(stack, top)->u.s.user = 0;
 			next_pc += sizeof(struct load_op) + sizeof(struct field_ref);
 			PO;
@@ -710,8 +791,24 @@ uint64_t lttng_filter_interpret_bytecode(void *filter_data,
 			dbg_printk("load string %s\n", insn->data);
 			estack_push(stack, top, ax, bx);
 			estack_ax(stack, top)->u.s.str = insn->data;
-			estack_ax(stack, top)->u.s.seq_len = UINT_MAX;
-			estack_ax(stack, top)->u.s.literal = 1;
+			estack_ax(stack, top)->u.s.seq_len = LTTNG_SIZE_MAX;
+			estack_ax(stack, top)->u.s.literal_type =
+				ESTACK_STRING_LITERAL_TYPE_PLAIN;
+			estack_ax(stack, top)->u.s.user = 0;
+			next_pc += sizeof(struct load_op) + strlen(insn->data) + 1;
+			PO;
+		}
+
+		OP(FILTER_OP_LOAD_STAR_GLOB_STRING):
+		{
+			struct load_op *insn = (struct load_op *) pc;
+
+			dbg_printk("load globbing pattern %s\n", insn->data);
+			estack_push(stack, top, ax, bx);
+			estack_ax(stack, top)->u.s.str = insn->data;
+			estack_ax(stack, top)->u.s.seq_len = LTTNG_SIZE_MAX;
+			estack_ax(stack, top)->u.s.literal_type =
+				ESTACK_STRING_LITERAL_TYPE_STAR_GLOB;
 			estack_ax(stack, top)->u.s.user = 0;
 			next_pc += sizeof(struct load_op) + strlen(insn->data) + 1;
 			PO;
@@ -774,8 +871,9 @@ uint64_t lttng_filter_interpret_bytecode(void *filter_data,
 				ret = -EINVAL;
 				goto end;
 			}
-			estack_ax(stack, top)->u.s.seq_len = UINT_MAX;
-			estack_ax(stack, top)->u.s.literal = 0;
+			estack_ax(stack, top)->u.s.seq_len = LTTNG_SIZE_MAX;
+			estack_ax(stack, top)->u.s.literal_type =
+				ESTACK_STRING_LITERAL_TYPE_NONE;
 			estack_ax(stack, top)->u.s.user = 0;
 			dbg_printk("ref get context string %s\n", estack_ax(stack, top)->u.s.str);
 			next_pc += sizeof(struct load_op) + sizeof(struct field_ref);
@@ -823,8 +921,9 @@ uint64_t lttng_filter_interpret_bytecode(void *filter_data,
 				ret = -EINVAL;
 				goto end;
 			}
-			estack_ax(stack, top)->u.s.seq_len = UINT_MAX;
-			estack_ax(stack, top)->u.s.literal = 0;
+			estack_ax(stack, top)->u.s.seq_len = LTTNG_SIZE_MAX;
+			estack_ax(stack, top)->u.s.literal_type =
+				ESTACK_STRING_LITERAL_TYPE_NONE;
 			estack_ax(stack, top)->u.s.user = 1;
 			dbg_printk("ref load string %s\n", estack_ax(stack, top)->u.s.str);
 			next_pc += sizeof(struct load_op) + sizeof(struct field_ref);
@@ -849,7 +948,8 @@ uint64_t lttng_filter_interpret_bytecode(void *filter_data,
 				ret = -EINVAL;
 				goto end;
 			}
-			estack_ax(stack, top)->u.s.literal = 0;
+			estack_ax(stack, top)->u.s.literal_type =
+				ESTACK_STRING_LITERAL_TYPE_NONE;
 			estack_ax(stack, top)->u.s.user = 1;
 			next_pc += sizeof(struct load_op) + sizeof(struct field_ref);
 			PO;
