@@ -3,21 +3,25 @@
  *
  * LTTng modules filter code specializer.
  *
- * Copyright (C) 2010-2014 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+ * Copyright (C) 2010-2016 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; only
- * version 2.1 of the License.
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
  */
 
 #include <lttng-filter.h>
@@ -73,7 +77,13 @@ int lttng_filter_specialize_bytecode(struct bytecode_runtime *bytecode)
 				goto end;
 
 			case REG_STRING:
-				insn->op = FILTER_OP_EQ_STRING;
+				if (vstack_bx(stack)->type == REG_STAR_GLOB_STRING)
+					insn->op = FILTER_OP_EQ_STAR_GLOB_STRING;
+				else
+					insn->op = FILTER_OP_EQ_STRING;
+				break;
+			case REG_STAR_GLOB_STRING:
+				insn->op = FILTER_OP_EQ_STAR_GLOB_STRING;
 				break;
 			case REG_S64:
 				if (vstack_bx(stack)->type == REG_S64)
@@ -109,7 +119,13 @@ int lttng_filter_specialize_bytecode(struct bytecode_runtime *bytecode)
 				goto end;
 
 			case REG_STRING:
-				insn->op = FILTER_OP_NE_STRING;
+				if (vstack_bx(stack)->type == REG_STAR_GLOB_STRING)
+					insn->op = FILTER_OP_NE_STAR_GLOB_STRING;
+				else
+					insn->op = FILTER_OP_NE_STRING;
+				break;
+			case REG_STAR_GLOB_STRING:
+				insn->op = FILTER_OP_NE_STAR_GLOB_STRING;
 				break;
 			case REG_S64:
 				if (vstack_bx(stack)->type == REG_S64)
@@ -144,6 +160,10 @@ int lttng_filter_specialize_bytecode(struct bytecode_runtime *bytecode)
 				ret = -EINVAL;
 				goto end;
 
+			case REG_STAR_GLOB_STRING:
+				printk(KERN_WARNING "invalid register type for > binary operator\n");
+				ret = -EINVAL;
+				goto end;
 			case REG_STRING:
 				insn->op = FILTER_OP_GT_STRING;
 				break;
@@ -180,6 +200,10 @@ int lttng_filter_specialize_bytecode(struct bytecode_runtime *bytecode)
 				ret = -EINVAL;
 				goto end;
 
+			case REG_STAR_GLOB_STRING:
+				printk(KERN_WARNING "invalid register type for < binary operator\n");
+				ret = -EINVAL;
+				goto end;
 			case REG_STRING:
 				insn->op = FILTER_OP_LT_STRING;
 				break;
@@ -216,6 +240,10 @@ int lttng_filter_specialize_bytecode(struct bytecode_runtime *bytecode)
 				ret = -EINVAL;
 				goto end;
 
+			case REG_STAR_GLOB_STRING:
+				printk(KERN_WARNING "invalid register type for >= binary operator\n");
+				ret = -EINVAL;
+				goto end;
 			case REG_STRING:
 				insn->op = FILTER_OP_GE_STRING;
 				break;
@@ -251,6 +279,10 @@ int lttng_filter_specialize_bytecode(struct bytecode_runtime *bytecode)
 				ret = -EINVAL;
 				goto end;
 
+			case REG_STAR_GLOB_STRING:
+				printk(KERN_WARNING "invalid register type for <= binary operator\n");
+				ret = -EINVAL;
+				goto end;
 			case REG_STRING:
 				insn->op = FILTER_OP_LE_STRING;
 				break;
@@ -278,6 +310,8 @@ int lttng_filter_specialize_bytecode(struct bytecode_runtime *bytecode)
 		case FILTER_OP_LT_STRING:
 		case FILTER_OP_GE_STRING:
 		case FILTER_OP_LE_STRING:
+		case FILTER_OP_EQ_STAR_GLOB_STRING:
+		case FILTER_OP_NE_STAR_GLOB_STRING:
 		case FILTER_OP_EQ_S64:
 		case FILTER_OP_NE_S64:
 		case FILTER_OP_GT_S64:
@@ -471,6 +505,19 @@ int lttng_filter_specialize_bytecode(struct bytecode_runtime *bytecode)
 			break;
 		}
 
+		case FILTER_OP_LOAD_STAR_GLOB_STRING:
+		{
+			struct load_op *insn = (struct load_op *) pc;
+
+			if (vstack_push(stack)) {
+				ret = -EINVAL;
+				goto end;
+			}
+			vstack_ax(stack)->type = REG_STAR_GLOB_STRING;
+			next_pc += sizeof(struct load_op) + strlen(insn->data) + 1;
+			break;
+		}
+
 		case FILTER_OP_LOAD_S64:
 		{
 			if (vstack_push(stack)) {
@@ -507,6 +554,7 @@ int lttng_filter_specialize_bytecode(struct bytecode_runtime *bytecode)
 				goto end;
 
 			case REG_STRING:
+			case REG_STAR_GLOB_STRING:
 				printk(KERN_WARNING "Cast op can only be applied to numeric or floating point registers\n");
 				ret = -EINVAL;
 				goto end;

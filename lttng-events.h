@@ -324,7 +324,7 @@ struct lttng_event {
 };
 
 enum lttng_enabler_type {
-	LTTNG_ENABLER_WILDCARD,
+	LTTNG_ENABLER_STAR_GLOB,
 	LTTNG_ENABLER_NAME,
 };
 
@@ -810,7 +810,7 @@ int lttng_kretprobes_event_enable_state(struct lttng_event *event,
 }
 #endif
 
-#ifdef CONFIG_DYNAMIC_FTRACE
+#if defined(CONFIG_DYNAMIC_FTRACE) && !defined(LTTNG_FTRACE_MISSING_HEADER)
 int lttng_ftrace_register(const char *name,
 			  const char *symbol_name,
 			  struct lttng_event *event);

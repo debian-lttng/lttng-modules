@@ -1,4 +1,9 @@
-2017-06-12 (National Peanut Butter Cookie Day) LTTng modules 2.9.3
+2017-08-01 (World Wide Web Day) LTTng modules 2.10.0
+	* Fix: Sleeping function called from invalid context
+	* Fix: sched for v4.11.5-rt1
+	* Fix: handle missing ftrace header on v4.12
+
+2017-06-12 (National Peanut Butter Cookie Day) LTTng modules 2.10.0-rc2
 	* Fix: pid tracker should track "pgid"
 	* Fix: Build ftrace probe on kernels prior to 4.12
 	* Fix: update ftrace probe for kernel 4.12
@@ -12,10 +17,20 @@
 	* Fix: add "flush empty" ioctl for stream intersection
 	* Revert "Fix: flush empty packets on snapshot channel"
 	* Revert "Fix: don't perform extra flush on metadata channel"
-	* Fix: remove CONFIG_KALLSYMS_ALL warning on clean
 
-2017-04-25 (National Zucchini Bread Day) LTTng modules 2.9.2
+2017-05-05 (International Tuba Day) LTTng modules 2.10.0-rc1
+	* Fix: remove CONFIG_KALLSYMS_ALL warning on clean
+	* Add RING_BUFFER_SNAPSHOT_SAMPLE_POSITIONS command
 	* Fix: Always build vmscan probe
+	* Cleanup: formatting in strutils_star_glob_match explanation
+	* Fix: introduce LTTNG_SIZE_MAX for older kernels
+	* Use SIZE_MAX instead of -1ULL for size_t parameter
+	* filter: use SIZE_MAX for size_t
+	* Fix: out of bound array access in filter code
+	* Add support for star globbing patterns in event names
+	* Filtering: add support for star-only globbing patterns
+	* Add string utilities
+	* lttng-abi.c: cleanup whitespaces
 	* Fix: use of uninitialized ret value in lttng_abi_open_metadata_stream
 	* Fix: kref changes for kernel 4.11
 	* Fix: atomic_add_unless() returns true/false rather than prior value
@@ -25,25 +40,26 @@
 	* Fix: update btrfs instrumentation for kernel 4.11
 	* Fix: update mm_vmscan instrumentation for kernel 4.11
 	* Fix: section mismatch warning caused by __exit annotation
-
-2017-02-17 (National Cabbage Day) LTTng modules 2.9.1
+	* socketpair: extend syscall socketpair tracing information
+	* Remove events/mainline unused headers
+	* update event README
 	* Fix: nmi-safe clock on 32-bit systems
 	* Fix: only include linux/cpuhotplug.h for kernels >= 4.10
 	* Fix: 4.10 hotplug adaptation backward compat
-	* Adapt lttng-modules to Linux 4.10 cpu hotplug state machine
 	* Fix: 4.10 btrfs instrumentation update backward compat
 	* Update btrfs instrumentation for 4.10 kernel
+	* Adapt lttng-modules to Linux 4.10 cpu hotplug state machine
 	* btrfs instrumentation: update to 4.10 kernel
 	* timer instrumentation: adapt to ktime_t without union
+	* Add load/unload messages to kernel log
+	* Update version to 2.10.0-pre
 	* Fix: asoc instrumentation for RHEL 7.3
 	* Fix: SCSI instrumentation for SLES12 SP2
 	* Add SUSE Linux Enterprise kernel version tests
-
-2016-11-29 (National Square Dance Day) LTTng modules 2.9.0
+	* Filter code relicensing to MIT license
+	* Add task cpu in process statedump
 	* Performance: add missing unlikely in reserve
 	* Fix: preemptible and migratable context error handling
-
-2016-10-13 (International Day for Failure) LTTng modules 2.9.0-rc2
 	* Fix: bump stable kernel version ranges for clock work-around
 
 2016-10-07 (National Frappé Day) LTTng modules 2.9.0-rc1
