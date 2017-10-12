@@ -1,21 +1,21 @@
 #!/usr/bin/make -f
 # -*- makefile -*-
 
+include /usr/share/dpkg/pkg-info.mk
+
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
-
-upstreamversion := $(shell dpkg-parsechangelog | sed -n 's/^Version: *\([^-]\+\)-.\+/\1/p')
 
 %:
 	dh $@ --with dkms
 
 override_dh_dkms:
-	dh_dkms -V $(upstreamversion)
+	dh_dkms -V ${DEB_VERSION_UPSTREAM}
 
 override_dh_auto_install:
 	# Build install files for the dkms'ified sources
-	sed -e 's/CVERSION/$(upstreamversion)/g' < debian/lttng-modules-dkms.install.in > debian/lttng-modules-dkms.install
-	sed -e 's/CVERSION/$(upstreamversion)/g' < debian/lttng-modules-dkms.dkms.in > debian/lttng-modules-dkms.dkms
+	sed -e 's/CVERSION/${DEB_VERSION_UPSTREAM}/g' < debian/lttng-modules-dkms.install.in > debian/lttng-modules-dkms.install
+	sed -e 's/CVERSION/${DEB_VERSION_UPSTREAM}/g' < debian/lttng-modules-dkms.dkms.in > debian/lttng-modules-dkms.dkms
 	dh_auto_install
 
 override_dh_install:
