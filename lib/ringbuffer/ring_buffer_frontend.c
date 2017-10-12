@@ -54,6 +54,7 @@
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/percpu.h>
+#include <asm/cacheflush.h>
 
 #include <wrapper/ringbuffer/config.h>
 #include <wrapper/ringbuffer/backend.h>
@@ -64,6 +65,7 @@
 #include <wrapper/kref.h>
 #include <wrapper/percpu-defs.h>
 #include <wrapper/timer.h>
+#include <wrapper/vmalloc.h>
 
 /*
  * Internal structure representing offsets to use at a sub-buffer switch.
@@ -146,8 +148,8 @@ void lib_ring_buffer_free(struct lib_ring_buffer *buf)
 	struct channel *chan = buf->backend.chan;
 
 	lib_ring_buffer_print_errors(chan, buf, buf->backend.cpu);
-	kfree(buf->commit_hot);
-	kfree(buf->commit_cold);
+	lttng_kvfree(buf->commit_hot);
+	lttng_kvfree(buf->commit_cold);
 
 	lib_ring_buffer_backend_free(&buf->backend);
 }
@@ -244,7 +246,7 @@ int lib_ring_buffer_create(struct lib_ring_buffer *buf,
 		return ret;
 
 	buf->commit_hot =
-		kzalloc_node(ALIGN(sizeof(*buf->commit_hot)
+		lttng_kvzalloc_node(ALIGN(sizeof(*buf->commit_hot)
 				   * chan->backend.num_subbuf,
 				   1 << INTERNODE_CACHE_SHIFT),
 			GFP_KERNEL | __GFP_NOWARN,
@@ -255,7 +257,7 @@ int lib_ring_buffer_create(struct lib_ring_buffer *buf,
 	}
 
 	buf->commit_cold =
-		kzalloc_node(ALIGN(sizeof(*buf->commit_cold)
+		lttng_kvzalloc_node(ALIGN(sizeof(*buf->commit_cold)
 				   * chan->backend.num_subbuf,
 				   1 << INTERNODE_CACHE_SHIFT),
 			GFP_KERNEL | __GFP_NOWARN,
@@ -304,9 +306,9 @@ int lib_ring_buffer_create(struct lib_ring_buffer *buf,
 
 	/* Error handling */
 free_init:
-	kfree(buf->commit_cold);
+	lttng_kvfree(buf->commit_cold);
 free_commit:
-	kfree(buf->commit_hot);
+	lttng_kvfree(buf->commit_hot);
 free_chanbuf:
 	lib_ring_buffer_backend_free(&buf->backend);
 	return ret;
@@ -1180,6 +1182,47 @@ void lib_ring_buffer_move_consumer(struct lib_ring_buffer *buf,
 }
 EXPORT_SYMBOL_GPL(lib_ring_buffer_move_consumer);
 
+#if ARCH_IMPLEMENTS_FLUSH_DCACHE_PAGE
+static void lib_ring_buffer_flush_read_subbuf_dcache(
+		const struct lib_ring_buffer_config *config,
+		struct channel *chan,
+		struct lib_ring_buffer *buf)
+{
+	struct lib_ring_buffer_backend_pages *pages;
+	unsigned long sb_bindex, id, i, nr_pages;
+
+	if (config->output != RING_BUFFER_MMAP)
+		return;
+
+	/*
+	 * Architectures with caches aliased on virtual addresses may
+	 * use different cache lines for the linear mapping vs
+	 * user-space memory mapping. Given that the ring buffer is
+	 * based on the kernel linear mapping, aligning it with the
+	 * user-space mapping is not straightforward, and would require
+	 * extra TLB entries. Therefore, simply flush the dcache for the
+	 * entire sub-buffer before reading it.
+	 */
+	id = buf->backend.buf_rsb.id;
+	sb_bindex = subbuffer_id_get_index(config, id);
+	pages = buf->backend.array[sb_bindex];
+	nr_pages = buf->backend.num_pages_per_subbuf;
+	for (i = 0; i < nr_pages; i++) {
+		struct lib_ring_buffer_backend_page *backend_page;
+
+		backend_page = &pages->p[i];
+		flush_dcache_page(pfn_to_page(backend_page->pfn));
+	}
+}
+#else
+static void lib_ring_buffer_flush_read_subbuf_dcache(
+		const struct lib_ring_buffer_config *config,
+		struct channel *chan,
+		struct lib_ring_buffer *buf)
+{
+}
+#endif
+
 /**
  * lib_ring_buffer_get_subbuf - get exclusive access to subbuffer for reading
  * @buf: ring buffer
@@ -1321,6 +1364,8 @@ retry:
 
 	buf->get_subbuf_consumed = consumed;
 	buf->get_subbuf = 1;
+
+	lib_ring_buffer_flush_read_subbuf_dcache(config, chan, buf);
 
 	return 0;
 

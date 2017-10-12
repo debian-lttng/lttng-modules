@@ -36,12 +36,13 @@
 
 #include <wrapper/trace-clock.h>
 #include <wrapper/compiler.h>
+#include <wrapper/vmalloc.h>
 #include <lttng-tracer-core.h>
 #include <lttng-events.h>
 
 #define LTTNG_MODULES_MAJOR_VERSION 2
 #define LTTNG_MODULES_MINOR_VERSION 10
-#define LTTNG_MODULES_PATCHLEVEL_VERSION 0
+#define LTTNG_MODULES_PATCHLEVEL_VERSION 2
 #define LTTNG_MODULES_EXTRAVERSION ""
 
 #define LTTNG_VERSION_NAME		"KeKriek"
