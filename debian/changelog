@@ -1,3 +1,12 @@
+lttng-modules (2.10.2-1) unstable; urgency=medium
+
+  * [d5106f3] New upstream version 2.10.2
+  * [ca6162d] Changed deprecated extra priority to optional
+  * [4eb2511] Bump standards version to 4.1.1
+  * [f0c44a7] Use dpkg-dev instead of parsing the output of dpkg-parsechangelog
+
+ -- Michael Jeanson <mjeanson@ubuntu.com>  Thu, 12 Oct 2017 16:14:22 -0400
+
 lttng-modules (2.10.0-1) unstable; urgency=medium
 
   * [b1735c2] Move to DEP-14 branch naming
