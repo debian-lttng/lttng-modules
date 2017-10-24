@@ -1,3 +1,9 @@
+lttng-modules (2.10.2-2) unstable; urgency=medium
+
+  * [0ac6cb8] Add autopkgtest support
+
+ -- Michael Jeanson <mjeanson@ubuntu.com>  Tue, 24 Oct 2017 15:15:09 -0400
+
 lttng-modules (2.10.2-1) unstable; urgency=medium
 
   * [d5106f3] New upstream version 2.10.2
