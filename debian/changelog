@@ -1,3 +1,11 @@
+lttng-modules (2.10.3-1) unstable; urgency=medium
+
+  * [5a07c44] Fix build with linux-rt 4.9 kernel
+  * [d099769] New upstream version 2.10.3
+  * [3d2a6d4] Use https url in watch file
+
+ -- Michael Jeanson <mjeanson@ubuntu.com>  Mon, 06 Nov 2017 11:02:56 -0500
+
 lttng-modules (2.10.2-2) unstable; urgency=medium
 
   * [0ac6cb8] Add autopkgtest support
