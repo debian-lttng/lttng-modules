@@ -1,0 +1,14 @@
+Fix build of sched instrumentation on linux-rt >= 4.9.27-rt8
+
+--- a/instrumentation/events/lttng-module/sched.h
++++ b/instrumentation/events/lttng-module/sched.h
+@@ -542,7 +542,8 @@
+ 
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0) || \
+ 	LTTNG_RT_KERNEL_RANGE(4,9,27,18, 4,10,0,0) || \
+-	LTTNG_RT_KERNEL_RANGE(4,11,5,1, 4,12,0,0))
++	LTTNG_RT_KERNEL_RANGE(4,11,5,1, 4,12,0,0) || \
++	(LTTNG_KERNEL_RANGE(4,9,27, 4,10,0) && defined(CONFIG_PREEMPT_RT_FULL)))
+ /*
+  * Tracepoint for showing priority inheritance modifying a tasks
+  * priority.
