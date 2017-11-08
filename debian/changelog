@@ -1,3 +1,9 @@
+lttng-modules (2.10.4-1) unstable; urgency=medium
+
+  * [2926967] New upstream version 2.10.4
+
+ -- Michael Jeanson <mjeanson@ubuntu.com>  Wed, 08 Nov 2017 14:28:35 -0500
+
 lttng-modules (2.10.3-1) unstable; urgency=medium
 
   * [5a07c44] Fix build with linux-rt 4.9 kernel
