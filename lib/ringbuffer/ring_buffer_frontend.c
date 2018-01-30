@@ -314,9 +314,9 @@ free_chanbuf:
 	return ret;
 }
 
-static void switch_buffer_timer(unsigned long data)
+static void switch_buffer_timer(LTTNG_TIMER_FUNC_ARG_TYPE t)
 {
-	struct lib_ring_buffer *buf = (struct lib_ring_buffer *)data;
+	struct lib_ring_buffer *buf = lttng_from_timer(buf, t, switch_timer);
 	struct channel *chan = buf->backend.chan;
 	const struct lib_ring_buffer_config *config = &chan->backend.config;
 
@@ -341,22 +341,22 @@ static void lib_ring_buffer_start_switch_timer(struct lib_ring_buffer *buf)
 {
 	struct channel *chan = buf->backend.chan;
 	const struct lib_ring_buffer_config *config = &chan->backend.config;
+	unsigned int flags = 0;
 
 	if (!chan->switch_timer_interval || buf->switch_timer_enabled)
 		return;
 
 	if (config->alloc == RING_BUFFER_ALLOC_PER_CPU)
-		lttng_init_timer_pinned(&buf->switch_timer);
-	else
-		init_timer(&buf->switch_timer);
+		flags = LTTNG_TIMER_PINNED;
 
-	buf->switch_timer.function = switch_buffer_timer;
+	lttng_timer_setup(&buf->switch_timer, switch_buffer_timer, flags, buf);
 	buf->switch_timer.expires = jiffies + chan->switch_timer_interval;
-	buf->switch_timer.data = (unsigned long)buf;
+
 	if (config->alloc == RING_BUFFER_ALLOC_PER_CPU)
 		add_timer_on(&buf->switch_timer, buf->backend.cpu);
 	else
 		add_timer(&buf->switch_timer);
+
 	buf->switch_timer_enabled = 1;
 }
 
@@ -377,9 +377,9 @@ static void lib_ring_buffer_stop_switch_timer(struct lib_ring_buffer *buf)
 /*
  * Polling timer to check the channels for data.
  */
-static void read_buffer_timer(unsigned long data)
+static void read_buffer_timer(LTTNG_TIMER_FUNC_ARG_TYPE t)
 {
-	struct lib_ring_buffer *buf = (struct lib_ring_buffer *)data;
+	struct lib_ring_buffer *buf = lttng_from_timer(buf, t, read_timer);
 	struct channel *chan = buf->backend.chan;
 	const struct lib_ring_buffer_config *config = &chan->backend.config;
 
@@ -406,6 +406,7 @@ static void lib_ring_buffer_start_read_timer(struct lib_ring_buffer *buf)
 {
 	struct channel *chan = buf->backend.chan;
 	const struct lib_ring_buffer_config *config = &chan->backend.config;
+	unsigned int flags;
 
 	if (config->wakeup != RING_BUFFER_WAKEUP_BY_TIMER
 	    || !chan->read_timer_interval
@@ -413,18 +414,16 @@ static void lib_ring_buffer_start_read_timer(struct lib_ring_buffer *buf)
 		return;
 
 	if (config->alloc == RING_BUFFER_ALLOC_PER_CPU)
-		lttng_init_timer_pinned(&buf->read_timer);
-	else
-		init_timer(&buf->read_timer);
+		flags = LTTNG_TIMER_PINNED;
 
-	buf->read_timer.function = read_buffer_timer;
+	lttng_timer_setup(&buf->read_timer, read_buffer_timer, flags, buf);
 	buf->read_timer.expires = jiffies + chan->read_timer_interval;
-	buf->read_timer.data = (unsigned long)buf;
 
 	if (config->alloc == RING_BUFFER_ALLOC_PER_CPU)
 		add_timer_on(&buf->read_timer, buf->backend.cpu);
 	else
 		add_timer(&buf->read_timer);
+
 	buf->read_timer_enabled = 1;
 }
 
@@ -984,7 +983,7 @@ void *channel_destroy(struct channel *chan)
 			 * Perform flush before writing to finalized.
 			 */
 			smp_wmb();
-			ACCESS_ONCE(buf->finalized) = 1;
+			WRITE_ONCE(buf->finalized, 1);
 			wake_up_interruptible(&buf->read_wait);
 		}
 	} else {
@@ -998,10 +997,10 @@ void *channel_destroy(struct channel *chan)
 		 * Perform flush before writing to finalized.
 		 */
 		smp_wmb();
-		ACCESS_ONCE(buf->finalized) = 1;
+		WRITE_ONCE(buf->finalized, 1);
 		wake_up_interruptible(&buf->read_wait);
 	}
-	ACCESS_ONCE(chan->finalized) = 1;
+	WRITE_ONCE(chan->finalized, 1);
 	wake_up_interruptible(&chan->hp_wait);
 	wake_up_interruptible(&chan->read_wait);
 	priv = chan->backend.priv;
@@ -1078,7 +1077,7 @@ int lib_ring_buffer_snapshot(struct lib_ring_buffer *buf,
 	int finalized;
 
 retry:
-	finalized = ACCESS_ONCE(buf->finalized);
+	finalized = READ_ONCE(buf->finalized);
 	/*
 	 * Read finalized before counters.
 	 */
@@ -1249,7 +1248,7 @@ int lib_ring_buffer_get_subbuf(struct lib_ring_buffer *buf,
 		return -EBUSY;
 	}
 retry:
-	finalized = ACCESS_ONCE(buf->finalized);
+	finalized = READ_ONCE(buf->finalized);
 	/*
 	 * Read finalized before counters.
 	 */
@@ -1885,16 +1884,14 @@ static void _lib_ring_buffer_switch_remote(struct lib_ring_buffer *buf,
 	}
 
 	/*
-	 * Taking lock on CPU hotplug to ensure two things: first, that the
+	 * Disabling preemption ensures two things: first, that the
 	 * target cpu is not taken concurrently offline while we are within
-	 * smp_call_function_single() (I don't trust that get_cpu() on the
-	 * _local_ CPU actually inhibit CPU hotplug for the _remote_ CPU (to be
-	 * confirmed)). Secondly, if it happens that the CPU is not online, our
-	 * own call to lib_ring_buffer_switch_slow() needs to be protected from
-	 * CPU hotplug handlers, which can also perform a remote subbuffer
-	 * switch.
+	 * smp_call_function_single(). Secondly, if it happens that the
+	 * CPU is not online, our own call to lib_ring_buffer_switch_slow()
+	 * needs to be protected from CPU hotplug handlers, which can
+	 * also perform a remote subbuffer switch.
 	 */
-	get_online_cpus();
+	preempt_disable();
 	param.buf = buf;
 	param.mode = mode;
 	ret = smp_call_function_single(buf->backend.cpu,
@@ -1903,7 +1900,7 @@ static void _lib_ring_buffer_switch_remote(struct lib_ring_buffer *buf,
 		/* Remote CPU is offline, do it ourself. */
 		lib_ring_buffer_switch_slow(buf, mode);
 	}
-	put_online_cpus();
+	preempt_enable();
 }
 
 /* Switch sub-buffer if current sub-buffer is non-empty. */
