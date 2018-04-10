@@ -1,3 +1,12 @@
+lttng-modules (2.9.8-1~ubuntu16.04.1) xenial; urgency=medium
+
+  * [daa4196] New upstream version 2.9.8
+  * [161e61d] Set gbp conf
+  * [6a07308] Set watch file for stable-2.9
+  * [d6e8677] Drop patch applied upstream
+
+ -- Michael Jeanson <mjeanson@debian.org>  Tue, 10 Apr 2018 16:18:43 -0400
+
 lttng-modules (2.9.3-1) unstable; urgency=medium
 
   * [0f7109e] New upstream version 2.9.2
