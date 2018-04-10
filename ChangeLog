@@ -1,3 +1,50 @@
+2018-01-30 (National Croissant Day) LTTng modules 2.9.8
+	* Fix: network instrumentation protocol enum
+	* Fix: update btrfs instrumentation for SuSE 4.4.103-6
+	* Fix: update block instrumentation for SuSE 4.4.73-5
+	* Fix: global_dirty_limit for kernel v4.2 and up
+	* Fix: network instrumentation handling of corrupted TCP headers
+	* Fix: add missing uaccess.h include from kstrtox.h wrapper
+	* Update: kvm instrumentation for 4.14.14+, 4.9.77+, 4.4.112+
+	* Fix: btrfs_delayed_ref_head was unwired since v3.12
+	* Update kvm instrumentation for debian kernel 4.9.65-3
+	* Fix: debian kernel version parsing
+	* Fix: block instrumentation 4.14+ NULL pointer dereference
+	* Update: kvm instrumentation for 3.16.52 and 3.2.97
+	* Fix: kvm instrumentation for 4.15
+	* Update sock instrumentation for 4.15
+	* Update kvm instrumentation for 4.15
+	* Fix: ACCESS_ONCE() removed in kernel 4.15
+	* Fix: sched instrumentation on stable RT kernels
+	* timer API transition for kernel 4.15
+	* Fix: Don't nest get online cpus
+	* Fix: lttng_channel_syscall_mask() bool use in bitfield
+	* Fix: update kmem instrumentation for kernel 4.15
+
+2017-11-08 (National Cappuccino Day) LTTng modules 2.9.7
+	* Fix: lttng_kvmalloc helper NULL pointer OOPS
+
+2017-11-03 (National Sandwich Day) LTTng modules 2.9.6
+	* Fix: lttng-logger get_user_pages_fast error handling
+
+2017-10-05 LTTng modules 2.9.5
+	* Fix: update block instrumentation for 4.14 kernel
+	* Revert "Fix: update block instrumentation for kernel 4.14"
+
+2017-10-03 (National Techies Day) LTTng modules 2.9.4
+	* Fix: version check error in btrfs instrumentation
+	* Fix: update btrfs instrumentation for kernel 4.14
+	* Fix: update writeback instrumentation for kernel 4.14
+	* Fix: update block instrumentation for kernel 4.14
+	* Fix: vmalloc wrapper on kernel < 2.6.38
+	* Fix: vmalloc wrapper on kernel >= 4.12
+	* Add kmalloc failover to vmalloc
+	* Fix: mmap: caches aliased on virtual addresses
+	* Fix: update ext4 instrumentation for kernel 4.13
+	* Fix: Sleeping function called from invalid context
+	* Fix: sched for v4.11.5-rt1
+	* Fix: handle missing ftrace header on v4.12
+
 2017-06-12 (National Peanut Butter Cookie Day) LTTng modules 2.9.3
 	* Fix: pid tracker should track "pgid"
 	* Fix: Build ftrace probe on kernels prior to 4.12
