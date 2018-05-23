@@ -1,3 +1,12 @@
+lttng-modules (2.10.6-1) unstable; urgency=medium
+
+  * [60f9658] New upstream version 2.10.6
+  * [e1998ce] Drop patch merged upstream
+  * [36dee0d] Use salsa canonical uri in VCS-Browser
+  * [8542a9d] Bump standard to 4.1.4, no changes necessary
+
+ -- Michael Jeanson <mjeanson@debian.org>  Wed, 23 May 2018 11:30:51 -0400
+
 lttng-modules (2.10.5-1) unstable; urgency=medium
 
   * [a2c04be] Switched my uploader email to @debian.org
