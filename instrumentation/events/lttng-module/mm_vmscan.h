@@ -84,6 +84,21 @@ LTTNG_TRACEPOINT_EVENT(mm_vmscan_kswapd_wake,
 
 #endif
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0))
+LTTNG_TRACEPOINT_EVENT(mm_vmscan_wakeup_kswapd,
+
+	TP_PROTO(int nid, int zid, int order, gfp_t gfp_flags),
+
+	TP_ARGS(nid, zid, order, gfp_flags),
+
+	TP_FIELDS(
+		ctf_integer(int, nid, nid)
+		ctf_integer(int, zid, zid)
+		ctf_integer(int, order, order)
+		ctf_integer(gfp_t, gfp_flags, gfp_flags)
+	)
+)
+#else
 LTTNG_TRACEPOINT_EVENT(mm_vmscan_wakeup_kswapd,
 
 	TP_PROTO(int nid, int zid, int order),
@@ -96,6 +111,7 @@ LTTNG_TRACEPOINT_EVENT(mm_vmscan_wakeup_kswapd,
 		ctf_integer(int, order, order)
 	)
 )
+#endif
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,8,0))
 
@@ -204,7 +220,32 @@ LTTNG_TRACEPOINT_EVENT_INSTANCE(mm_vmscan_direct_reclaim_end_template, mm_vmscan
 	TP_ARGS(nr_reclaimed)
 )
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,1,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0))
+LTTNG_TRACEPOINT_EVENT_MAP(mm_shrink_slab_start,
+
+	mm_vmscan_shrink_slab_start,
+
+	TP_PROTO(struct shrinker *shr, struct shrink_control *sc,
+		long nr_objects_to_shrink, unsigned long cache_items,
+		unsigned long long delta, unsigned long total_scan,
+		int priority),
+
+	TP_ARGS(shr, sc, nr_objects_to_shrink, cache_items, delta, total_scan,
+		priority),
+
+	TP_FIELDS(
+		ctf_integer_hex(struct shrinker *, shr, shr)
+		ctf_integer_hex(void *, shrink, shr->scan_objects)
+		ctf_integer(int, nid, sc->nid)
+		ctf_integer(long, nr_objects_to_shrink, nr_objects_to_shrink)
+		ctf_integer(gfp_t, gfp_flags, sc->gfp_mask)
+		ctf_integer(unsigned long, cache_items, cache_items)
+		ctf_integer(unsigned long long, delta, delta)
+		ctf_integer(unsigned long, total_scan, total_scan)
+		ctf_integer(int, priority, priority)
+	)
+)
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,1,0))
 LTTNG_TRACEPOINT_EVENT_MAP(mm_shrink_slab_start,
 
 	mm_vmscan_shrink_slab_start,
@@ -233,6 +274,7 @@ LTTNG_TRACEPOINT_EVENT_MAP(mm_shrink_slab_start,
 		ctf_integer(unsigned long, total_scan, total_scan)
 	)
 )
+#endif
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0))
 LTTNG_TRACEPOINT_EVENT_MAP(mm_shrink_slab_end,
@@ -255,7 +297,7 @@ LTTNG_TRACEPOINT_EVENT_MAP(mm_shrink_slab_end,
 		ctf_integer(long, total_scan, total_scan)
 	)
 )
-#else /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)) */
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,1,0))
 LTTNG_TRACEPOINT_EVENT_MAP(mm_shrink_slab_end,
 
 	mm_vmscan_shrink_slab_end,
@@ -278,7 +320,6 @@ LTTNG_TRACEPOINT_EVENT_MAP(mm_shrink_slab_end,
 		ctf_integer(long, total_scan, new_scan_cnt - unused_scan_cnt)
 	)
 )
-#endif /* #else #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,0)) */
 #endif
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))
@@ -509,7 +550,31 @@ LTTNG_TRACEPOINT_EVENT(mm_vmscan_writepage,
 )
 #endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0))
+LTTNG_TRACEPOINT_EVENT(mm_vmscan_lru_shrink_inactive,
+
+	TP_PROTO(int nid,
+		unsigned long nr_scanned, unsigned long nr_reclaimed,
+		struct reclaim_stat *stat, int priority, int file),
+
+	TP_ARGS(nid, nr_scanned, nr_reclaimed, stat, priority, file),
+
+	TP_FIELDS(
+		ctf_integer(int, nid, nid)
+		ctf_integer(unsigned long, nr_scanned, nr_scanned)
+		ctf_integer(unsigned long, nr_reclaimed, nr_reclaimed)
+		ctf_integer(unsigned long, nr_dirty, stat->nr_dirty)
+		ctf_integer(unsigned long, nr_writeback, stat->nr_writeback)
+		ctf_integer(unsigned long, nr_congested, stat->nr_congested)
+		ctf_integer(unsigned long, nr_immediate, stat->nr_immediate)
+		ctf_integer(unsigned long, nr_activate, stat->nr_activate)
+		ctf_integer(unsigned long, nr_ref_keep, stat->nr_ref_keep)
+		ctf_integer(unsigned long, nr_unmap_fail, stat->nr_unmap_fail)
+		ctf_integer(int, priority, priority)
+		ctf_integer(int, reclaim_flags, trace_shrink_flags(file))
+	)
+)
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))
 LTTNG_TRACEPOINT_EVENT(mm_vmscan_lru_shrink_inactive,
 
 	TP_PROTO(int nid,
