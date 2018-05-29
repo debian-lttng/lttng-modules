@@ -1,3 +1,10 @@
+lttng-modules (2.10.6-1~ubuntu18.04.1) bionic; urgency=medium
+
+  * Source backport to bionic
+  * [d9012be] Update gbp config
+
+ -- Michael Jeanson <mjeanson@debian.org>  Tue, 29 May 2018 10:29:28 -0400
+
 lttng-modules (2.10.6-1) unstable; urgency=medium
 
   * [60f9658] New upstream version 2.10.6
