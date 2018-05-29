@@ -1,3 +1,9 @@
+lttng-modules (2.10.6-1~ubuntu16.04.1) xenial; urgency=medium
+
+  * [60f9658] New upstream version 2.10.6
+
+ -- Michael Jeanson <mjeanson@debian.org>  Tue, 29 May 2018 10:20:48 -0400
+
 lttng-modules (2.10.5-1~ubuntu16.04.1) xenial; urgency=medium
 
   * [3d73583] New upstream version 2.10.5
