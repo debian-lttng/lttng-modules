@@ -1,3 +1,9 @@
+lttng-modules (2.10.6-2) unstable; urgency=medium
+
+  * [4005ba5] Add patch to fix build on linux 4.16
+
+ -- Michael Jeanson <mjeanson@debian.org>  Wed, 04 Jul 2018 11:51:42 -0400
+
 lttng-modules (2.10.6-1) unstable; urgency=medium
 
   * [60f9658] New upstream version 2.10.6
