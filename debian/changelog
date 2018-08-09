@@ -1,3 +1,11 @@
+lttng-modules (2.10.7-1) unstable; urgency=medium
+
+  * [a2b641e] New upstream version 2.10.7
+  * [473eab3] Drop patch merged upstream
+  * [8237ded] Bump standard to 4.2.0, no changes necessary
+
+ -- Michael Jeanson <mjeanson@debian.org>  Thu, 09 Aug 2018 16:57:36 -0400
+
 lttng-modules (2.10.6-2) unstable; urgency=medium
 
   * [4005ba5] Add patch to fix build on linux 4.16
