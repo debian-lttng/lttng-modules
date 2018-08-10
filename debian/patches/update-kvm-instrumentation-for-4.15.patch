@@ -1,0 +1,44 @@
+From 7c0f0b93429a7c08908f61790e1abb13fe8a4052 Mon Sep 17 00:00:00 2001
+From: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+Date: Tue, 26 Dec 2017 09:47:22 -0500
+Subject: [PATCH] Update kvm instrumentation for 4.15
+
+Signed-off-by: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+---
+ instrumentation/events/lttng-module/kvm.h | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+--- a/instrumentation/events/lttng-module/kvm.h
++++ b/instrumentation/events/lttng-module/kvm.h
+@@ -84,6 +84,22 @@
+ 	{ KVM_TRACE_MMIO_READ, "read" }, \
+ 	{ KVM_TRACE_MMIO_WRITE, "write" }
+ 
++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0))
++
++LTTNG_TRACEPOINT_EVENT(kvm_mmio,
++	TP_PROTO(int type, int len, u64 gpa, void *val),
++	TP_ARGS(type, len, gpa, val),
++
++	TP_FIELDS(
++		ctf_integer(u32, type, type)
++		ctf_integer(u32, len, len)
++		ctf_integer(u64, gpa, gpa)
++		ctf_sequence_hex(unsigned char, val, val, u32, len)
++	)
++)
++
++#else /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0)) */
++
+ LTTNG_TRACEPOINT_EVENT(kvm_mmio,
+ 	TP_PROTO(int type, int len, u64 gpa, u64 val),
+ 	TP_ARGS(type, len, gpa, val),
+@@ -96,6 +112,8 @@
+ 	)
+ )
+ 
++#endif /* #else #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0)) */
++
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,34))
+ 
+ #define kvm_fpu_load_symbol	\

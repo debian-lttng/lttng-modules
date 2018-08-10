@@ -1,1 +1,4 @@
 fix-linux-rt-4.9-sched.patch
+update-kvm-instrumentation-for-4.15.patch
+update-kvm-instrumentation-for-debian-kernel-4.9.65-3.patch
+fix-debian-kernel-version-parsing.patch
