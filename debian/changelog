@@ -1,3 +1,11 @@
+lttng-modules (2.9.0-1+deb9u1) stable; urgency=medium
+
+  * [c3d8eab] Stretch gbp branch config
+  * [ee40323] Fix build on linux-rt 4.9 kernels. (Closes: #864404)
+  * [b20f74a] Fix build on >= 4.9.0-3 kernels (Closes: #889901)
+
+ -- Michael Jeanson <mjeanson@debian.org>  Fri, 10 Aug 2018 12:47:14 -0400
+
 lttng-modules (2.9.0-1) unstable; urgency=medium
 
   * [500ac85] New upstream version 2.9.0
