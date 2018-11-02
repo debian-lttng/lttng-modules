@@ -29,6 +29,7 @@
 #include <linux/mm.h>
 #include <linux/vmalloc.h>
 
+#include <wrapper/mm.h>
 #include <wrapper/vmalloc.h>	/* for wrapper_vmalloc_sync_all() */
 #include <wrapper/ringbuffer/config.h>
 #include <wrapper/ringbuffer/backend.h>
@@ -56,6 +57,25 @@ int lib_ring_buffer_backend_allocate(const struct lib_ring_buffer_config *config
 	unsigned long i;
 
 	num_pages = size >> PAGE_SHIFT;
+
+	/*
+	 * Verify that there is enough free pages available on the system for
+	 * the current allocation request.
+	 * wrapper_check_enough_free_pages uses si_mem_available() if available
+	 * and returns if there should be enough free pages based on the
+	 * current estimate.
+	 */
+	if (!wrapper_check_enough_free_pages(num_pages))
+		goto not_enough_pages;
+
+	/*
+	 * Set the current user thread as the first target of the OOM killer.
+	 * If the estimate received by si_mem_available() was off, and we do
+	 * end up running out of memory because of this buffer allocation, we
+	 * want to kill the offending app first.
+	 */
+	wrapper_set_current_oom_origin();
+
 	num_pages_per_subbuf = num_pages >> get_count_order(num_subbuf);
 	subbuf_size = chanb->subbuf_size;
 	num_subbuf_alloc = num_subbuf;
@@ -150,6 +170,7 @@ int lib_ring_buffer_backend_allocate(const struct lib_ring_buffer_config *config
 	 * will not fault.
 	 */
 	wrapper_vmalloc_sync_all();
+	wrapper_clear_current_oom_origin();
 	vfree(pages);
 	return 0;
 
@@ -166,6 +187,8 @@ depopulate:
 array_error:
 	vfree(pages);
 pages_error:
+	wrapper_clear_current_oom_origin();
+not_enough_pages:
 	return -ENOMEM;
 }
 
@@ -468,9 +491,11 @@ int channel_backend_init(struct channel_backend *chanb,
 free_bufs:
 	if (config->alloc == RING_BUFFER_ALLOC_PER_CPU) {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0))
-		ret = cpuhp_state_remove_instance(lttng_rb_hp_prepare,
-				&chanb->cpuhp_prepare.node);
-		WARN_ON(ret);
+		/*
+		 * Teardown of lttng_rb_hp_prepare instance
+		 * on "add" error is handled within cpu hotplug,
+		 * no teardown to do from the caller.
+		 */
 #else /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)) */
 #ifdef CONFIG_HOTPLUG_CPU
 		put_online_cpus();
