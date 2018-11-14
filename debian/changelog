@@ -1,3 +1,9 @@
+lttng-modules (2.10.8-1~ubuntu14.04.1) trusty; urgency=medium
+
+  * [7037820] New upstream version 2.10.8
+
+ -- Michael Jeanson <mjeanson@debian.org>  Wed, 14 Nov 2018 15:26:01 -0500
+
 lttng-modules (2.10.6-1~ubuntu14.04.1) trusty; urgency=medium
 
   * [60f9658] New upstream version 2.10.6
