@@ -12,6 +12,17 @@
 #include <linux/signal.h>
 #include <linux/sched.h>
 #undef LTTNG_FIELDS_SIGINFO
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,20,0))
+#define LTTNG_FIELDS_SIGINFO(info)				\
+		ctf_integer(int, errno,				\
+			(info == SEND_SIG_NOINFO || info == SEND_SIG_PRIV) ? \
+			0 :					\
+			info->si_errno)				\
+		ctf_integer(int, code,				\
+			(info == SEND_SIG_NOINFO) ? 		\
+			SI_USER : 				\
+			((info == SEND_SIG_PRIV) ? SI_KERNEL : info->si_code))
+#else /* LINUX_VERSION_CODE >= KERNEL_VERSION(4,20,0) */
 #define LTTNG_FIELDS_SIGINFO(info)				\
 		ctf_integer(int, errno,				\
 			(info == SEND_SIG_NOINFO || info == SEND_SIG_FORCED || info == SEND_SIG_PRIV) ? \
@@ -21,6 +32,7 @@
 			(info == SEND_SIG_NOINFO || info == SEND_SIG_FORCED) ? \
 			SI_USER : 				\
 			((info == SEND_SIG_PRIV) ? SI_KERNEL : info->si_code))
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(4,20,0) */
 #endif /* _TRACE_SIGNAL_DEF */
 
 /**
@@ -35,21 +47,24 @@
  * SEND_SIG_NOINFO means that si_code is SI_USER, and SEND_SIG_PRIV
  * means that si_code is SI_KERNEL.
  */
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,20,0))
 LTTNG_TRACEPOINT_EVENT(signal_generate,
 
-	TP_PROTO(int sig, struct siginfo *info, struct task_struct *task),
+	TP_PROTO(int sig, struct kernel_siginfo *info, struct task_struct *task,
+			int group, int result),
 
-	TP_ARGS(sig, info, task),
+	TP_ARGS(sig, info, task, group, result),
 
 	TP_FIELDS(
 		ctf_integer(int, sig, sig)
 		LTTNG_FIELDS_SIGINFO(info)
 		ctf_array_text(char, comm, task->comm, TASK_COMM_LEN)
 		ctf_integer(pid_t, pid, task->pid)
+		ctf_integer(int, group, group)
+		ctf_integer(int, result, result)
 	)
 )
-#else
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0))
 LTTNG_TRACEPOINT_EVENT(signal_generate,
 
 	TP_PROTO(int sig, struct siginfo *info, struct task_struct *task,
@@ -64,6 +79,20 @@ LTTNG_TRACEPOINT_EVENT(signal_generate,
 		ctf_integer(pid_t, pid, task->pid)
 		ctf_integer(int, group, group)
 		ctf_integer(int, result, result)
+	)
+)
+#else
+LTTNG_TRACEPOINT_EVENT(signal_generate,
+
+	TP_PROTO(int sig, struct siginfo *info, struct task_struct *task),
+
+	TP_ARGS(sig, info, task),
+
+	TP_FIELDS(
+		ctf_integer(int, sig, sig)
+		LTTNG_FIELDS_SIGINFO(info)
+		ctf_array_text(char, comm, task->comm, TASK_COMM_LEN)
+		ctf_integer(pid_t, pid, task->pid)
 	)
 )
 #endif
@@ -82,6 +111,21 @@ LTTNG_TRACEPOINT_EVENT(signal_generate,
  * This means, this can show which signals are actually delivered, but
  * matching generated signals and delivered signals may not be correct.
  */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,20,0))
+LTTNG_TRACEPOINT_EVENT(signal_deliver,
+
+	TP_PROTO(int sig, struct kernel_siginfo *info, struct k_sigaction *ka),
+
+	TP_ARGS(sig, info, ka),
+
+	TP_FIELDS(
+		ctf_integer(int, sig, sig)
+		LTTNG_FIELDS_SIGINFO(info)
+		ctf_integer(unsigned long, sa_handler, (unsigned long) ka->sa.sa_handler)
+		ctf_integer(unsigned long, sa_flags, ka->sa.sa_flags)
+	)
+)
+#else
 LTTNG_TRACEPOINT_EVENT(signal_deliver,
 
 	TP_PROTO(int sig, struct siginfo *info, struct k_sigaction *ka),
@@ -95,6 +139,7 @@ LTTNG_TRACEPOINT_EVENT(signal_deliver,
 		ctf_integer(unsigned long, sa_flags, ka->sa.sa_flags)
 	)
 )
+#endif
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3,4,0))
 LTTNG_TRACEPOINT_EVENT_CLASS(signal_queue_overflow,
