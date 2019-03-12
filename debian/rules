@@ -19,7 +19,12 @@ override_dh_auto_install:
 	dh_auto_install
 
 override_dh_install:
-	dh_install -Xdebian/ -XLICENSE -Xgpl-2.0.txt -Xlgpl-2.1.txt -X.swp
+	dh_install -Xdebian/ \
+		-Xgpl-2.0.txt \
+		-Xlgpl-2.1.txt \
+		-XLICENSE \
+		-XREADME \
+		-XTODO
 
 override_dh_auto_clean:
 	exit 0
