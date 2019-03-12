@@ -1,3 +1,9 @@
+lttng-modules (2.10.9-1~ubuntu18.04.1) bionic; urgency=medium
+
+  * [565d31b] New upstream version 2.10.9
+
+ -- Michael Jeanson <mjeanson@debian.org>  Tue, 12 Mar 2019 15:50:23 -0400
+
 lttng-modules (2.10.8-1~ubuntu18.04.1) bionic; urgency=medium
 
   * [7037820] New upstream version 2.10.8
