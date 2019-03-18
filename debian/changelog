@@ -1,3 +1,9 @@
+lttng-modules (2.10.9-2) unstable; urgency=medium
+
+  * [f6ae7c6] Don't remove README from sources (Closes: #924896)
+
+ -- Michael Jeanson <mjeanson@debian.org>  Mon, 18 Mar 2019 13:02:40 -0400
+
 lttng-modules (2.10.9-1) unstable; urgency=medium
 
   * [000a3f0] Add Salsa CI configuration
