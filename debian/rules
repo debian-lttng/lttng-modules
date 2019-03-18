@@ -23,7 +23,6 @@ override_dh_install:
 		-Xgpl-2.0.txt \
 		-Xlgpl-2.1.txt \
 		-XLICENSE \
-		-XREADME \
 		-XTODO
 
 override_dh_auto_clean:
