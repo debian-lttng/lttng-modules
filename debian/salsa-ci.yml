@@ -7,13 +7,14 @@ build:
     extends: .build-package
 
 reprotest:
-    extends: .test-reprotest
+    extends: .test-reprotest-diffoscope
 
 lintian:
     extends: .test-lintian
 
-autopkgtest:
-    extends: .test-autopkgtest
+# Salsa CI doesn't support isolation-machine
+#autopkgtest:
+#    extends: .test-autopkgtest
 
 blhc:
     extends: .test-blhc
