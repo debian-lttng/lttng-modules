@@ -89,7 +89,12 @@ int _lttng_field_statedump(struct lttng_session *session,
 
 void synchronize_trace(void)
 {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,1,0))
+	synchronize_rcu();
+#else
 	synchronize_sched();
+#endif
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0))
 #ifdef CONFIG_PREEMPT_RT_FULL
 	synchronize_rcu();
@@ -1117,8 +1122,8 @@ int lttng_session_list_tracker_pids(struct lttng_session *session)
 		ret = PTR_ERR(tracker_pids_list_file);
 		goto file_error;
 	}
-	if (atomic_long_add_unless(&session->file->f_count,
-		1, INT_MAX) == INT_MAX) {
+	if (!atomic_long_add_unless(&session->file->f_count, 1, LONG_MAX)) {
+		ret = -EOVERFLOW;
 		goto refcount_error;
 	}
 	ret = lttng_tracker_pids_list_fops.open(NULL, tracker_pids_list_file);
