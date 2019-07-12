@@ -1,3 +1,10 @@
+lttng-modules (2.10.10-1) unstable; urgency=medium
+
+  * [c753cf3] Disable Salsa CI autopkgtest test
+  * [113af65] New upstream version 2.10.10
+
+ -- Michael Jeanson <mjeanson@debian.org>  Fri, 12 Jul 2019 14:21:09 -0400
+
 lttng-modules (2.10.9-2) unstable; urgency=medium
 
   * [f6ae7c6] Don't remove README from sources (Closes: #924896)
