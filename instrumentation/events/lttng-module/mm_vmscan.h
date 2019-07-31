@@ -25,7 +25,16 @@ typedef int isolate_mode_t;
 
 #endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,2,0))
+
+#include <linux/mm_inline.h>
+
+#define trace_reclaim_flags(file) ( \
+	(file ? RECLAIM_WB_FILE : RECLAIM_WB_ANON) | \
+	(RECLAIM_WB_ASYNC) \
+	)
+
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0))
 
 #include <linux/mm_inline.h>
 
@@ -113,7 +122,42 @@ LTTNG_TRACEPOINT_EVENT(mm_vmscan_wakeup_kswapd,
 )
 #endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,8,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,2,0))
+
+LTTNG_TRACEPOINT_EVENT_CLASS(mm_vmscan_direct_reclaim_begin_template,
+
+	TP_PROTO(int order, gfp_t gfp_flags),
+
+	TP_ARGS(order, gfp_flags),
+
+	TP_FIELDS(
+		ctf_integer(int, order, order)
+		ctf_integer(gfp_t, gfp_flags, gfp_flags)
+	)
+)
+
+LTTNG_TRACEPOINT_EVENT_INSTANCE(mm_vmscan_direct_reclaim_begin_template, mm_vmscan_direct_reclaim_begin,
+
+	TP_PROTO(int order, gfp_t gfp_flags),
+
+	TP_ARGS(order, gfp_flags)
+)
+
+LTTNG_TRACEPOINT_EVENT_INSTANCE(mm_vmscan_direct_reclaim_begin_template, mm_vmscan_memcg_reclaim_begin,
+
+	TP_PROTO(int order, gfp_t gfp_flags),
+
+	TP_ARGS(order, gfp_flags)
+)
+
+LTTNG_TRACEPOINT_EVENT_INSTANCE(mm_vmscan_direct_reclaim_begin_template, mm_vmscan_memcg_softlimit_reclaim_begin,
+
+	TP_PROTO(int order, gfp_t gfp_flags),
+
+	TP_ARGS(order, gfp_flags)
+)
+
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4,8,0))
 
 LTTNG_TRACEPOINT_EVENT_CLASS(mm_vmscan_direct_reclaim_begin_template,
 
@@ -523,7 +567,20 @@ LTTNG_TRACEPOINT_EVENT_INSTANCE(mm_vmscan_lru_isolate_template, mm_vmscan_memcg_
 )
 #endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,2,0))
+LTTNG_TRACEPOINT_EVENT(mm_vmscan_writepage,
+
+	TP_PROTO(struct page *page),
+
+	TP_ARGS(page),
+
+	TP_FIELDS(
+		ctf_integer_hex(struct page *, page, page)
+		ctf_integer(int, reclaim_flags, trace_reclaim_flags(
+				page_is_file_cache(page)))
+	)
+)
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4,5,0))
 LTTNG_TRACEPOINT_EVENT(mm_vmscan_writepage,
 
 	TP_PROTO(struct page *page),
@@ -550,7 +607,32 @@ LTTNG_TRACEPOINT_EVENT(mm_vmscan_writepage,
 )
 #endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,2,0))
+LTTNG_TRACEPOINT_EVENT(mm_vmscan_lru_shrink_inactive,
+
+	TP_PROTO(int nid,
+		unsigned long nr_scanned, unsigned long nr_reclaimed,
+		struct reclaim_stat *stat, int priority, int file),
+
+	TP_ARGS(nid, nr_scanned, nr_reclaimed, stat, priority, file),
+
+	TP_FIELDS(
+		ctf_integer(int, nid, nid)
+		ctf_integer(unsigned long, nr_scanned, nr_scanned)
+		ctf_integer(unsigned long, nr_reclaimed, nr_reclaimed)
+		ctf_integer(unsigned long, nr_dirty, stat->nr_dirty)
+		ctf_integer(unsigned long, nr_writeback, stat->nr_writeback)
+		ctf_integer(unsigned long, nr_congested, stat->nr_congested)
+		ctf_integer(unsigned long, nr_immediate, stat->nr_immediate)
+		ctf_integer(unsigned long, nr_activate_anon, stat->nr_activate[0])
+		ctf_integer(unsigned long, nr_activate_file, stat->nr_activate[1])
+		ctf_integer(unsigned long, nr_ref_keep, stat->nr_ref_keep)
+		ctf_integer(unsigned long, nr_unmap_fail, stat->nr_unmap_fail)
+		ctf_integer(int, priority, priority)
+		ctf_integer(int, reclaim_flags, trace_reclaim_flags(file))
+	)
+)
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0))
 LTTNG_TRACEPOINT_EVENT(mm_vmscan_lru_shrink_inactive,
 
 	TP_PROTO(int nid,
