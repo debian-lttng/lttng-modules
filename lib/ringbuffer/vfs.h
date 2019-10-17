@@ -1,30 +1,14 @@
-#ifndef _LIB_RING_BUFFER_VFS_H
-#define _LIB_RING_BUFFER_VFS_H
-
-/*
+/* SPDX-License-Identifier: (GPL-2.0 OR LGPL-2.1)
+ *
  * lib/ringbuffer/vfs.h
  *
  * Wait-free ring buffer VFS file operations.
  *
  * Copyright (C) 2005-2012 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; only
- * version 2.1 of the License.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
- *
- * Author:
- *	Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
  */
+
+#ifndef _LIB_RING_BUFFER_VFS_H
+#define _LIB_RING_BUFFER_VFS_H
 
 #include <linux/fs.h>
 #include <linux/poll.h>
@@ -123,6 +107,11 @@ ssize_t vfs_lib_ring_buffer_splice_read(struct file *in, loff_t *ppos,
 #define RING_BUFFER_SNAPSHOT_SAMPLE_POSITIONS	_IO(0xF6, 0x0E)
 /* Flush the current sub-buffer, even if empty. */
 #define RING_BUFFER_FLUSH_EMPTY			_IO(0xF6, 0x0F)
+/*
+ * Reset the position of what has been consumed from the metadata cache to 0
+ * so it can be read again.
+ */
+#define RING_BUFFER_METADATA_CACHE_DUMP		_IO(0xF6, 0x10)
 
 #ifdef CONFIG_COMPAT
 /* Get a snapshot of the current ring buffer producer and consumer positions */

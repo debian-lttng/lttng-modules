@@ -1,27 +1,14 @@
-#ifndef _LTTNG_EVENTS_H
-#define _LTTNG_EVENTS_H
-
-/*
+/* SPDX-License-Identifier: (GPL-2.0 or LGPL-2.1)
+ *
  * lttng-events.h
  *
  * Holds LTTng per-session event registry.
  *
  * Copyright (C) 2010-2012 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; only
- * version 2.1 of the License.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
+
+#ifndef _LTTNG_EVENTS_H
+#define _LTTNG_EVENTS_H
 
 #include <linux/version.h>
 #include <linux/list.h>
@@ -29,6 +16,7 @@
 #include <linux/kref.h>
 #include <lttng-cpuhotplug.h>
 #include <wrapper/uuid.h>
+#include <wrapper/uprobes.h>
 #include <lttng-tracer.h>
 #include <lttng-abi.h>
 #include <lttng-abi-old.h>
@@ -55,6 +43,8 @@ enum abstract_types {
 	atype_array_compound,		/* Array of compound types. */
 	atype_sequence_compound,	/* Sequence of compound types. */
 	atype_variant,
+	atype_array_bitfield,
+	atype_sequence_bitfield,
 	NR_ABSTRACT_TYPES,
 };
 
@@ -204,6 +194,9 @@ struct lttng_probe_ctx {
 struct lttng_ctx_field {
 	struct lttng_event_field event_field;
 	size_t (*get_size)(size_t offset);
+	size_t (*get_size_arg)(size_t offset, struct lttng_ctx_field *field,
+	                       struct lib_ring_buffer_ctx *ctx,
+	                       struct lttng_channel *chan);
 	void (*record)(struct lttng_ctx_field *field,
 		       struct lib_ring_buffer_ctx *ctx,
 		       struct lttng_channel *chan);
@@ -214,6 +207,12 @@ struct lttng_ctx_field {
 		struct lttng_perf_counter_field *perf_counter;
 	} u;
 	void (*destroy)(struct lttng_ctx_field *field);
+	/*
+	 * Private data to keep state between get_size and record.
+	 * User must perform its own synchronization to protect against
+	 * concurrent and reentrant contexts.
+	 */
+	void *priv;
 };
 
 struct lttng_ctx {
@@ -275,6 +274,7 @@ struct lttng_bytecode_runtime {
 			const char *filter_stack_data);
 	int link_failed;
 	struct list_head node;	/* list of bytecode runtime in event */
+	struct lttng_event *event;
 };
 
 /*
@@ -283,6 +283,13 @@ struct lttng_bytecode_runtime {
 struct lttng_enabler_ref {
 	struct list_head node;			/* enabler ref list */
 	struct lttng_enabler *ref;		/* backward ref */
+};
+
+struct lttng_uprobe_handler {
+	struct lttng_event *event;
+	loff_t offset;
+	struct uprobe_consumer up_consumer;
+	struct list_head node;
 };
 
 /*
@@ -310,6 +317,10 @@ struct lttng_event {
 		struct {
 			char *symbol_name;
 		} ftrace;
+		struct {
+			struct inode *inode;
+			struct list_head head;
+		} uprobe;
 	} u;
 	struct list_head list;		/* Event list in session */
 	unsigned int metadata_dumped:1;
@@ -510,6 +521,8 @@ struct lttng_session {
 	struct list_head enablers_head;
 	/* Hash table of events */
 	struct lttng_event_ht events_ht;
+	char name[LTTNG_KERNEL_SESSION_NAME_LEN];
+	char creation_time[LTTNG_KERNEL_SESSION_CREATION_TIME_ISO8601_LEN];
 };
 
 struct lttng_metadata_cache {
@@ -702,6 +715,9 @@ int lttng_add_migratable_to_ctx(struct lttng_ctx **ctx)
 	return -ENOSYS;
 }
 #endif
+
+int lttng_add_callstack_to_ctx(struct lttng_ctx **ctx, int type);
+
 #if defined(CONFIG_PERF_EVENTS) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,33))
 int lttng_add_perf_counter_to_ctx(uint32_t type,
 				  uint64_t config,
@@ -765,6 +781,42 @@ void lttng_kprobes_unregister(struct lttng_event *event)
 
 static inline
 void lttng_kprobes_destroy_private(struct lttng_event *event)
+{
+}
+#endif
+
+int lttng_event_add_callsite(struct lttng_event *event,
+	struct lttng_kernel_event_callsite *callsite);
+
+#ifdef CONFIG_UPROBES
+int lttng_uprobes_register(const char *name,
+	int fd, struct lttng_event *event);
+int lttng_uprobes_add_callsite(struct lttng_event *event,
+	struct lttng_kernel_event_callsite *callsite);
+void lttng_uprobes_unregister(struct lttng_event *event);
+void lttng_uprobes_destroy_private(struct lttng_event *event);
+#else
+static inline
+int lttng_uprobes_register(const char *name,
+	int fd, struct lttng_event *event)
+{
+	return -ENOSYS;
+}
+
+static inline
+int lttng_uprobes_add_callsite(struct lttng_event *event,
+	struct lttng_kernel_event_callsite *callsite)
+{
+	return -ENOSYS;
+}
+
+static inline
+void lttng_uprobes_unregister(struct lttng_event *event)
+{
+}
+
+static inline
+void lttng_uprobes_destroy_private(struct lttng_event *event)
 {
 }
 #endif

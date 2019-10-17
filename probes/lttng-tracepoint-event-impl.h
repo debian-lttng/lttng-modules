@@ -1,22 +1,9 @@
-/*
+/* SPDX-License-Identifier: (GPL-2.0 or LGPL-2.1)
+ *
  * lttng-tracepoint-event-impl.h
  *
  * Copyright (C) 2009 Steven Rostedt <rostedt@goodmis.org>
  * Copyright (C) 2009-2014 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; only
- * version 2.1 of the License.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <linux/uaccess.h>
@@ -275,7 +262,7 @@ void __event_template_proto___##_name(void);
 	},
 
 #undef _ctf_array_encoded
-#define _ctf_array_encoded(_type, _item, _src, _length, _encoding, _user, _nowrite) \
+#define _ctf_array_encoded(_type, _item, _src, _length, _encoding, _byte_order, _base, _user, _nowrite) \
 	{							\
 	  .name = #_item,					\
 	  .type =						\
@@ -285,7 +272,7 @@ void __event_template_proto___##_name(void);
 			{					\
 			  .array =				\
 				{				\
-				  .elem_type = __type_integer(_type, 0, 0, 0, __BYTE_ORDER, 10, _encoding), \
+				  .elem_type = __type_integer(_type, 0, 0, 0, _byte_order, _base, _encoding), \
 				  .length = _length,		\
 				}				\
 			}					\
@@ -300,7 +287,7 @@ void __event_template_proto___##_name(void);
 	  .name = #_item,					\
 	  .type =						\
 		{						\
-		  .atype = atype_array,				\
+		  .atype = atype_array_bitfield,		\
 		  .u =						\
 			{					\
 			  .array =				\
@@ -346,7 +333,7 @@ void __event_template_proto___##_name(void);
 	  .name = #_item,					\
 	  .type =						\
 		{						\
-		  .atype = atype_sequence,			\
+		  .atype = atype_sequence_bitfield,		\
 		  .u =						\
 			{					\
 			  .sequence =				\
@@ -476,13 +463,13 @@ static void __event_probe__##_name(void *__data);
 	__event_len += sizeof(_type);
 
 #undef _ctf_array_encoded
-#define _ctf_array_encoded(_type, _item, _src, _length, _encoding, _user, _nowrite) \
+#define _ctf_array_encoded(_type, _item, _src, _length, _encoding, _byte_order, _base, _user, _nowrite) \
 	__event_len += lib_ring_buffer_align(__event_len, lttng_alignof(_type)); \
 	__event_len += sizeof(_type) * (_length);
 
 #undef _ctf_array_bitfield
 #define _ctf_array_bitfield(_type, _item, _src, _length, _user, _nowrite) \
-	_ctf_array_encoded(_type, _item, _src, _length, none, _user, _nowrite)
+	_ctf_array_encoded(_type, _item, _src, _length, none, __LITTLE_ENDIAN, 0, _user, _nowrite)
 
 #undef _ctf_sequence_encoded
 #define _ctf_sequence_encoded(_type, _item, _src, _length_type,			\
@@ -698,7 +685,7 @@ error:									      \
 	_ctf_integer_ext_isuser##_user(_type, _item, _user_src, _byte_order, _base, _nowrite)
 
 #undef _ctf_array_encoded
-#define _ctf_array_encoded(_type, _item, _src, _length, _encoding, _user, _nowrite) \
+#define _ctf_array_encoded(_type, _item, _src, _length, _encoding, _byte_order, _base, _user, _nowrite) \
 	{								       \
 		unsigned long __ctf_tmp_ulong = (unsigned long) (_length);     \
 		const void *__ctf_tmp_ptr = (_src);			       \
@@ -710,7 +697,7 @@ error:									      \
 
 #undef _ctf_array_bitfield
 #define _ctf_array_bitfield(_type, _item, _src, _length, _user, _nowrite) \
-	_ctf_array_encoded(_type, _item, _src, _length, none, _user, _nowrite)
+	_ctf_array_encoded(_type, _item, _src, _length, none, __LITTLE_ENDIAN, 0, _user, _nowrite)
 
 #undef _ctf_sequence_encoded
 #define _ctf_sequence_encoded(_type, _item, _src, _length_type,		       \
@@ -792,12 +779,12 @@ void __event_prepare_filter_stack__##_name(char *__stack_data,		      \
 	__event_align = max_t(size_t, __event_align, lttng_alignof(_type));
 
 #undef _ctf_array_encoded
-#define _ctf_array_encoded(_type, _item, _src, _length, _encoding, _user, _nowrite) \
+#define _ctf_array_encoded(_type, _item, _src, _length, _encoding, _byte_order, _base, _user, _nowrite) \
 	__event_align = max_t(size_t, __event_align, lttng_alignof(_type));
 
 #undef _ctf_array_bitfield
 #define _ctf_array_bitfield(_type, _item, _src, _length, _user, _nowrite) \
-	_ctf_array_encoded(_type, _item, _src, _length, none, _user, _nowrite)
+	_ctf_array_encoded(_type, _item, _src, _length, none, __LITTLE_ENDIAN, 0, _user, _nowrite)
 
 #undef _ctf_sequence_encoded
 #define _ctf_sequence_encoded(_type, _item, _src, _length_type,			\
@@ -906,7 +893,7 @@ static inline size_t __event_get_align__##_name(void *__tp_locvar)	      \
 	_ctf_integer_ext_isuser##_user(_type, _item, _user_src, _byte_order, _base, _nowrite)
 
 #undef _ctf_array_encoded
-#define _ctf_array_encoded(_type, _item, _src, _length, _encoding, _user, _nowrite) \
+#define _ctf_array_encoded(_type, _item, _src, _length, _encoding, _byte_order, _base, _user, _nowrite) \
 	lib_ring_buffer_align_ctx(&__ctx, lttng_alignof(_type));	\
 	if (_user) {							\
 		__chan->ops->event_write_from_user(&__ctx, _src, sizeof(_type) * (_length)); \

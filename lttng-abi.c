@@ -1,24 +1,10 @@
-/*
+/* SPDX-License-Identifier: (GPL-2.0 or LGPL-2.1)
+ *
  * lttng-abi.c
  *
  * LTTng ABI
  *
  * Copyright (C) 2010-2012 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; only
- * version 2.1 of the License.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
- *
  *
  * Mimic system calls for:
  * - session creation, returns a file descriptor or failure.
@@ -247,6 +233,9 @@ long lttng_abi_add_context(struct file *file,
 		return lttng_add_preemptible_to_ctx(ctx);
 	case LTTNG_KERNEL_CONTEXT_MIGRATABLE:
 		return lttng_add_migratable_to_ctx(ctx);
+	case LTTNG_KERNEL_CONTEXT_CALLSTACK_KERNEL:
+	case LTTNG_KERNEL_CONTEXT_CALLSTACK_USER:
+		return lttng_add_callstack_to_ctx(ctx, context_param->ctx);
 	default:
 		return -EINVAL;
 	}
@@ -464,6 +453,40 @@ fd_error:
 	return ret;
 }
 
+static
+int lttng_abi_session_set_name(struct lttng_session *session,
+		struct lttng_kernel_session_name *name)
+{
+	size_t len;
+
+	len = strnlen(name->name, LTTNG_KERNEL_SESSION_NAME_LEN);
+
+	if (len == LTTNG_KERNEL_SESSION_NAME_LEN) {
+		/* Name is too long/malformed */
+		return -EINVAL;
+	}
+
+	strcpy(session->name, name->name);
+	return 0;
+}
+
+static
+int lttng_abi_session_set_creation_time(struct lttng_session *session,
+		struct lttng_kernel_session_creation_time *time)
+{
+	size_t len;
+
+	len = strnlen(time->iso8601, LTTNG_KERNEL_SESSION_CREATION_TIME_ISO8601_LEN);
+
+	if (len == LTTNG_KERNEL_SESSION_CREATION_TIME_ISO8601_LEN) {
+		/* Time is too long/malformed */
+		return -EINVAL;
+	}
+
+	strcpy(session->creation_time, time->iso8601);
+	return 0;
+}
+
 /**
  *	lttng_session_ioctl - lttng session fd ioctl
  *
@@ -565,6 +588,26 @@ long lttng_session_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		return lttng_session_metadata_regenerate(session);
 	case LTTNG_KERNEL_SESSION_STATEDUMP:
 		return lttng_session_statedump(session);
+	case LTTNG_KERNEL_SESSION_SET_NAME:
+	{
+		struct lttng_kernel_session_name name;
+
+		if (copy_from_user(&name,
+				(struct lttng_kernel_session_name __user *) arg,
+				sizeof(struct lttng_kernel_session_name)))
+			return -EFAULT;
+		return lttng_abi_session_set_name(session, &name);
+	}
+	case LTTNG_KERNEL_SESSION_SET_CREATION_TIME:
+	{
+		struct lttng_kernel_session_creation_time time;
+
+		if (copy_from_user(&time,
+				(struct lttng_kernel_session_creation_time __user *) arg,
+				sizeof(struct lttng_kernel_session_creation_time)))
+			return -EFAULT;
+		return lttng_abi_session_set_creation_time(session, &time);
+	}
 	default:
 		return -ENOIOCTLCMD;
 	}
@@ -647,6 +690,38 @@ void lttng_metadata_ring_buffer_ioctl_put_next_subbuf(struct file *filp,
 	stream->metadata_out = stream->metadata_in;
 }
 
+/*
+ * Reset the counter of how much metadata has been consumed to 0. That way,
+ * the consumer receives the content of the metadata cache unchanged. This is
+ * different from the metadata_regenerate where the offset from epoch is
+ * resampled, here we want the exact same content as the last time the metadata
+ * was generated. This command is only possible if all the metadata written
+ * in the cache has been output to the metadata stream to avoid corrupting the
+ * metadata file.
+ *
+ * Return 0 on success, a negative value on error.
+ */
+static
+int lttng_metadata_cache_dump(struct lttng_metadata_stream *stream)
+{
+	int ret;
+	struct lttng_metadata_cache *cache = stream->metadata_cache;
+
+	mutex_lock(&cache->lock);
+	if (stream->metadata_out != cache->metadata_written) {
+		ret = -EBUSY;
+		goto end;
+	}
+	stream->metadata_out = 0;
+	stream->metadata_in = 0;
+	wake_up_interruptible(&stream->read_wait);
+	ret = 0;
+
+end:
+	mutex_unlock(&cache->lock);
+	return ret;
+}
+
 static
 long lttng_metadata_ring_buffer_ioctl(struct file *filp,
 		unsigned int cmd, unsigned long arg)
@@ -698,6 +773,12 @@ long lttng_metadata_ring_buffer_ioctl(struct file *filp,
 		struct lttng_metadata_stream *stream = filp->private_data;
 
 		return put_u64(stream->version, arg);
+	}
+	case RING_BUFFER_METADATA_CACHE_DUMP:
+	{
+		struct lttng_metadata_stream *stream = filp->private_data;
+
+		return lttng_metadata_cache_dump(stream);
 	}
 	default:
 		break;
@@ -775,6 +856,12 @@ long lttng_metadata_ring_buffer_compat_ioctl(struct file *filp,
 		struct lttng_metadata_stream *stream = filp->private_data;
 
 		return put_u64(stream->version, arg);
+	}
+	case RING_BUFFER_METADATA_CACHE_DUMP:
+	{
+		struct lttng_metadata_stream *stream = filp->private_data;
+
+		return lttng_metadata_cache_dump(stream);
 	}
 	default:
 		break;
@@ -1264,7 +1351,6 @@ old_ctx_end:
 	default:
 		return -ENOIOCTLCMD;
 	}
-
 }
 
 /**
@@ -1431,7 +1517,18 @@ long lttng_event_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return lttng_enabler_attach_bytecode(enabler,
 				(struct lttng_kernel_filter_bytecode __user *) arg);
 		}
-
+		default:
+			WARN_ON_ONCE(1);
+			return -ENOSYS;
+		}
+	case LTTNG_KERNEL_ADD_CALLSITE:
+		switch (*evtype) {
+		case LTTNG_TYPE_EVENT:
+			event = file->private_data;
+			return lttng_event_add_callsite(event,
+				(struct lttng_kernel_event_callsite __user *) arg);
+		case LTTNG_TYPE_ENABLER:
+			return -EINVAL;
 		}
 	default:
 		return -ENOIOCTLCMD;

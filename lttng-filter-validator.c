@@ -1,27 +1,10 @@
-/*
+/* SPDX-License-Identifier: MIT
+ *
  * lttng-filter-validator.c
  *
  * LTTng modules filter bytecode validator.
  *
  * Copyright (C) 2010-2016 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
  */
 
 #include <linux/types.h>
@@ -122,19 +105,20 @@ int bin_op_compare_check(struct vstack *stack, const filter_opcode_t opcode,
 		const char *str)
 {
 	if (unlikely(!vstack_ax(stack) || !vstack_bx(stack)))
-		goto error_unknown;
+		goto error_empty;
 
 	switch (vstack_ax(stack)->type) {
 	default:
 	case REG_DOUBLE:
-		goto error_unknown;
+		goto error_type;
 
 	case REG_STRING:
 		switch (vstack_bx(stack)->type) {
 		default:
 		case REG_DOUBLE:
-			goto error_unknown;
-
+			goto error_type;
+		case REG_TYPE_UNKNOWN:
+			goto unknown;
 		case REG_STRING:
 			break;
 		case REG_STAR_GLOB_STRING:
@@ -150,8 +134,9 @@ int bin_op_compare_check(struct vstack *stack, const filter_opcode_t opcode,
 		switch (vstack_bx(stack)->type) {
 		default:
 		case REG_DOUBLE:
-			goto error_unknown;
-
+			goto error_type;
+		case REG_TYPE_UNKNOWN:
+			goto unknown;
 		case REG_STRING:
 			if (opcode != FILTER_OP_EQ && opcode != FILTER_OP_NE) {
 				goto error_mismatch;
@@ -166,12 +151,83 @@ int bin_op_compare_check(struct vstack *stack, const filter_opcode_t opcode,
 		switch (vstack_bx(stack)->type) {
 		default:
 		case REG_DOUBLE:
-			goto error_unknown;
-
+			goto error_type;
+		case REG_TYPE_UNKNOWN:
+			goto unknown;
 		case REG_STRING:
 		case REG_STAR_GLOB_STRING:
 			goto error_mismatch;
+		case REG_S64:
+			break;
+		}
+		break;
+	case REG_TYPE_UNKNOWN:
+		switch (vstack_bx(stack)->type) {
+		default:
+		case REG_DOUBLE:
+			goto error_type;
+		case REG_TYPE_UNKNOWN:
+		case REG_STRING:
+		case REG_STAR_GLOB_STRING:
+		case REG_S64:
+			goto unknown;
+		}
+		break;
+	}
+	return 0;
 
+unknown:
+	return 1;
+
+error_empty:
+	printk(KERN_WARNING "empty stack for '%s' binary operator\n", str);
+	return -EINVAL;
+
+error_mismatch:
+	printk(KERN_WARNING "type mismatch for '%s' binary operator\n", str);
+	return -EINVAL;
+
+error_type:
+	printk(KERN_WARNING "unknown type for '%s' binary operator\n", str);
+	return -EINVAL;
+}
+
+/*
+ * Binary bitwise operators use top of stack and top of stack -1.
+ * Return 0 if typing is known to match, 1 if typing is dynamic
+ * (unknown), negative error value on error.
+ */
+static
+int bin_op_bitwise_check(struct vstack *stack, filter_opcode_t opcode,
+		const char *str)
+{
+	if (unlikely(!vstack_ax(stack) || !vstack_bx(stack)))
+		goto error_empty;
+
+	switch (vstack_ax(stack)->type) {
+	default:
+	case REG_DOUBLE:
+		goto error_type;
+
+	case REG_TYPE_UNKNOWN:
+		switch (vstack_bx(stack)->type) {
+		default:
+		case REG_DOUBLE:
+			goto error_type;
+		case REG_TYPE_UNKNOWN:
+		case REG_STRING:
+		case REG_STAR_GLOB_STRING:
+		case REG_S64:
+			goto unknown;
+		}
+		break;
+	case REG_S64:
+		switch (vstack_bx(stack)->type) {
+		default:
+		case REG_DOUBLE:
+			goto error_type;
+		case REG_TYPE_UNKNOWN:
+			goto unknown;
 		case REG_S64:
 			break;
 		}
@@ -179,12 +235,34 @@ int bin_op_compare_check(struct vstack *stack, const filter_opcode_t opcode,
 	}
 	return 0;
 
-error_unknown:
+unknown:
+	return 1;
+
+error_empty:
+	printk(KERN_WARNING "empty stack for '%s' binary operator\n", str);
 	return -EINVAL;
 
-error_mismatch:
-	printk(KERN_WARNING "type mismatch for '%s' binary operator\n", str);
+error_type:
+	printk(KERN_WARNING "unknown type for '%s' binary operator\n", str);
 	return -EINVAL;
+}
+
+static
+int validate_get_symbol(struct bytecode_runtime *bytecode,
+		const struct get_symbol *sym)
+{
+	const char *str, *str_limit;
+	size_t len_limit;
+
+	if (sym->offset >= bytecode->p.bc->bc.len - bytecode->p.bc->bc.reloc_offset)
+		return -EINVAL;
+
+	str = bytecode->p.bc->bc.data + bytecode->p.bc->bc.reloc_offset + sym->offset;
+	str_limit = bytecode->p.bc->bc.data + bytecode->p.bc->bc.len;
+	len_limit = str_limit - str;
+	if (strnlen(str, len_limit) == len_limit)
+		return -EINVAL;
+	return 0;
 }
 
 /*
@@ -208,6 +286,7 @@ int bytecode_validate_overflow(struct bytecode_runtime *bytecode,
 	}
 
 	case FILTER_OP_RETURN:
+	case FILTER_OP_RETURN_S64:
 	{
 		if (unlikely(pc + sizeof(struct return_op)
 				> start_pc + bytecode->len)) {
@@ -222,11 +301,6 @@ int bytecode_validate_overflow(struct bytecode_runtime *bytecode,
 	case FILTER_OP_MOD:
 	case FILTER_OP_PLUS:
 	case FILTER_OP_MINUS:
-	case FILTER_OP_RSHIFT:
-	case FILTER_OP_LSHIFT:
-	case FILTER_OP_BIN_AND:
-	case FILTER_OP_BIN_OR:
-	case FILTER_OP_BIN_XOR:
 	case FILTER_OP_EQ_DOUBLE:
 	case FILTER_OP_NE_DOUBLE:
 	case FILTER_OP_GT_DOUBLE:
@@ -280,6 +354,11 @@ int bytecode_validate_overflow(struct bytecode_runtime *bytecode,
 	case FILTER_OP_LT_S64:
 	case FILTER_OP_GE_S64:
 	case FILTER_OP_LE_S64:
+	case FILTER_OP_BIT_RSHIFT:
+	case FILTER_OP_BIT_LSHIFT:
+	case FILTER_OP_BIT_AND:
+	case FILTER_OP_BIT_OR:
+	case FILTER_OP_BIT_XOR:
 	{
 		if (unlikely(pc + sizeof(struct binary_op)
 				> start_pc + bytecode->len)) {
@@ -295,6 +374,7 @@ int bytecode_validate_overflow(struct bytecode_runtime *bytecode,
 	case FILTER_OP_UNARY_PLUS_S64:
 	case FILTER_OP_UNARY_MINUS_S64:
 	case FILTER_OP_UNARY_NOT_S64:
+	case FILTER_OP_UNARY_BIT_NOT:
 	{
 		if (unlikely(pc + sizeof(struct unary_op)
 				> start_pc + bytecode->len)) {
@@ -321,6 +401,7 @@ int bytecode_validate_overflow(struct bytecode_runtime *bytecode,
 		ret = -EINVAL;
 		break;
 	}
+
 	/* get context ref */
 	case FILTER_OP_GET_CONTEXT_REF:
 	{
@@ -384,6 +465,62 @@ int bytecode_validate_overflow(struct bytecode_runtime *bytecode,
 		break;
 	}
 
+	/*
+	 * Instructions for recursive traversal through composed types.
+	 */
+	case FILTER_OP_GET_CONTEXT_ROOT:
+	case FILTER_OP_GET_APP_CONTEXT_ROOT:
+	case FILTER_OP_GET_PAYLOAD_ROOT:
+	case FILTER_OP_LOAD_FIELD:
+	case FILTER_OP_LOAD_FIELD_S8:
+	case FILTER_OP_LOAD_FIELD_S16:
+	case FILTER_OP_LOAD_FIELD_S32:
+	case FILTER_OP_LOAD_FIELD_S64:
+	case FILTER_OP_LOAD_FIELD_U8:
+	case FILTER_OP_LOAD_FIELD_U16:
+	case FILTER_OP_LOAD_FIELD_U32:
+	case FILTER_OP_LOAD_FIELD_U64:
+	case FILTER_OP_LOAD_FIELD_STRING:
+	case FILTER_OP_LOAD_FIELD_SEQUENCE:
+	case FILTER_OP_LOAD_FIELD_DOUBLE:
+		if (unlikely(pc + sizeof(struct load_op)
+				> start_pc + bytecode->len)) {
+			ret = -ERANGE;
+		}
+		break;
+
+	case FILTER_OP_GET_SYMBOL:
+	{
+		struct load_op *insn = (struct load_op *) pc;
+		struct get_symbol *sym = (struct get_symbol *) insn->data;
+
+		if (unlikely(pc + sizeof(struct load_op) + sizeof(struct get_symbol)
+				> start_pc + bytecode->len)) {
+			ret = -ERANGE;
+			break;
+		}
+		ret = validate_get_symbol(bytecode, sym);
+		break;
+	}
+
+	case FILTER_OP_GET_SYMBOL_FIELD:
+		printk(KERN_WARNING "Unexpected get symbol field\n");
+		ret = -EINVAL;
+		break;
+
+	case FILTER_OP_GET_INDEX_U16:
+		if (unlikely(pc + sizeof(struct load_op) + sizeof(struct get_index_u16)
+				> start_pc + bytecode->len)) {
+			ret = -ERANGE;
+		}
+		break;
+
+	case FILTER_OP_GET_INDEX_U64:
+		if (unlikely(pc + sizeof(struct load_op) + sizeof(struct get_index_u64)
+				> start_pc + bytecode->len)) {
+			ret = -ERANGE;
+		}
+		break;
 	}
 
 	return ret;
@@ -411,7 +548,7 @@ unsigned long delete_all_nodes(struct mp_table *mp_table)
 
 /*
  * Return value:
- * 0: success
+ * >=0: success
  * <0: error
  */
 static
@@ -434,6 +571,7 @@ int validate_instruction_context(struct bytecode_runtime *bytecode,
 	}
 
 	case FILTER_OP_RETURN:
+	case FILTER_OP_RETURN_S64:
 	{
 		goto end;
 	}
@@ -444,11 +582,6 @@ int validate_instruction_context(struct bytecode_runtime *bytecode,
 	case FILTER_OP_MOD:
 	case FILTER_OP_PLUS:
 	case FILTER_OP_MINUS:
-	case FILTER_OP_RSHIFT:
-	case FILTER_OP_LSHIFT:
-	case FILTER_OP_BIN_AND:
-	case FILTER_OP_BIN_OR:
-	case FILTER_OP_BIN_XOR:
 	/* Floating point */
 	case FILTER_OP_EQ_DOUBLE:
 	case FILTER_OP_NE_DOUBLE:
@@ -485,42 +618,42 @@ int validate_instruction_context(struct bytecode_runtime *bytecode,
 	case FILTER_OP_EQ:
 	{
 		ret = bin_op_compare_check(stack, opcode, "==");
-		if (ret)
+		if (ret < 0)
 			goto end;
 		break;
 	}
 	case FILTER_OP_NE:
 	{
 		ret = bin_op_compare_check(stack, opcode, "!=");
-		if (ret)
+		if (ret < 0)
 			goto end;
 		break;
 	}
 	case FILTER_OP_GT:
 	{
 		ret = bin_op_compare_check(stack, opcode, ">");
-		if (ret)
+		if (ret < 0)
 			goto end;
 		break;
 	}
 	case FILTER_OP_LT:
 	{
 		ret = bin_op_compare_check(stack, opcode, "<");
-		if (ret)
+		if (ret < 0)
 			goto end;
 		break;
 	}
 	case FILTER_OP_GE:
 	{
 		ret = bin_op_compare_check(stack, opcode, ">=");
-		if (ret)
+		if (ret < 0)
 			goto end;
 		break;
 	}
 	case FILTER_OP_LE:
 	{
 		ret = bin_op_compare_check(stack, opcode, "<=");
-		if (ret)
+		if (ret < 0)
 			goto end;
 		break;
 	}
@@ -585,6 +718,32 @@ int validate_instruction_context(struct bytecode_runtime *bytecode,
 		break;
 	}
 
+	case FILTER_OP_BIT_RSHIFT:
+		ret = bin_op_bitwise_check(stack, opcode, ">>");
+		if (ret < 0)
+			goto end;
+		break;
+	case FILTER_OP_BIT_LSHIFT:
+		ret = bin_op_bitwise_check(stack, opcode, "<<");
+		if (ret < 0)
+			goto end;
+		break;
+	case FILTER_OP_BIT_AND:
+		ret = bin_op_bitwise_check(stack, opcode, "&");
+		if (ret < 0)
+			goto end;
+		break;
+	case FILTER_OP_BIT_OR:
+		ret = bin_op_bitwise_check(stack, opcode, "|");
+		if (ret < 0)
+			goto end;
+		break;
+	case FILTER_OP_BIT_XOR:
+		ret = bin_op_bitwise_check(stack, opcode, "^");
+		if (ret < 0)
+			goto end;
+		break;
+
 	/* unary */
 	case FILTER_OP_UNARY_PLUS:
 	case FILTER_OP_UNARY_MINUS:
@@ -608,6 +767,33 @@ int validate_instruction_context(struct bytecode_runtime *bytecode,
 			ret = -EINVAL;
 			goto end;
 		case REG_S64:
+		case REG_TYPE_UNKNOWN:
+			break;
+		}
+		break;
+	}
+	case FILTER_OP_UNARY_BIT_NOT:
+	{
+		if (!vstack_ax(stack)) {
+			printk(KERN_WARNING "Empty stack\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		switch (vstack_ax(stack)->type) {
+		default:
+			printk(KERN_WARNING "unknown register type\n");
+			ret = -EINVAL;
+			goto end;
+
+		case REG_STRING:
+		case REG_STAR_GLOB_STRING:
+		case REG_DOUBLE:
+			printk(KERN_WARNING "Unary bitwise op can only be applied to numeric registers\n");
+			ret = -EINVAL;
+			goto end;
+		case REG_S64:
+			break;
+		case REG_TYPE_UNKNOWN:
 			break;
 		}
 		break;
@@ -762,6 +948,126 @@ int validate_instruction_context(struct bytecode_runtime *bytecode,
 		break;
 	}
 
+	/*
+	 * Instructions for recursive traversal through composed types.
+	 */
+	case FILTER_OP_GET_CONTEXT_ROOT:
+	{
+		dbg_printk("Validate get context root\n");
+		break;
+	}
+	case FILTER_OP_GET_APP_CONTEXT_ROOT:
+	{
+		dbg_printk("Validate get app context root\n");
+		break;
+	}
+	case FILTER_OP_GET_PAYLOAD_ROOT:
+	{
+		dbg_printk("Validate get payload root\n");
+		break;
+	}
+	case FILTER_OP_LOAD_FIELD:
+	{
+		/*
+		 * We tolerate that field type is unknown at validation,
+		 * because we are performing the load specialization in
+		 * a phase after validation.
+		 */
+		dbg_printk("Validate load field\n");
+		break;
+	}
+	case FILTER_OP_LOAD_FIELD_S8:
+	{
+		dbg_printk("Validate load field s8\n");
+		break;
+	}
+	case FILTER_OP_LOAD_FIELD_S16:
+	{
+		dbg_printk("Validate load field s16\n");
+		break;
+	}
+	case FILTER_OP_LOAD_FIELD_S32:
+	{
+		dbg_printk("Validate load field s32\n");
+		break;
+	}
+	case FILTER_OP_LOAD_FIELD_S64:
+	{
+		dbg_printk("Validate load field s64\n");
+		break;
+	}
+	case FILTER_OP_LOAD_FIELD_U8:
+	{
+		dbg_printk("Validate load field u8\n");
+		break;
+	}
+	case FILTER_OP_LOAD_FIELD_U16:
+	{
+		dbg_printk("Validate load field u16\n");
+		break;
+	}
+	case FILTER_OP_LOAD_FIELD_U32:
+	{
+		dbg_printk("Validate load field u32\n");
+		break;
+	}
+	case FILTER_OP_LOAD_FIELD_U64:
+	{
+		dbg_printk("Validate load field u64\n");
+		break;
+	}
+	case FILTER_OP_LOAD_FIELD_STRING:
+	{
+		dbg_printk("Validate load field string\n");
+		break;
+	}
+	case FILTER_OP_LOAD_FIELD_SEQUENCE:
+	{
+		dbg_printk("Validate load field sequence\n");
+		break;
+	}
+	case FILTER_OP_LOAD_FIELD_DOUBLE:
+	{
+		dbg_printk("Validate load field double\n");
+		break;
+	}
+
+	case FILTER_OP_GET_SYMBOL:
+	{
+		struct load_op *insn = (struct load_op *) pc;
+		struct get_symbol *sym = (struct get_symbol *) insn->data;
+
+		dbg_printk("Validate get symbol offset %u\n", sym->offset);
+		break;
+	}
+
+	case FILTER_OP_GET_SYMBOL_FIELD:
+	{
+		struct load_op *insn = (struct load_op *) pc;
+		struct get_symbol *sym = (struct get_symbol *) insn->data;
+
+		dbg_printk("Validate get symbol field offset %u\n", sym->offset);
+		break;
+	}
+
+	case FILTER_OP_GET_INDEX_U16:
+	{
+		struct load_op *insn = (struct load_op *) pc;
+		struct get_index_u16 *get_index = (struct get_index_u16 *) insn->data;
+
+		dbg_printk("Validate get index u16 index %u\n", get_index->index);
+		break;
+	}
+
+	case FILTER_OP_GET_INDEX_U64:
+	{
+		struct load_op *insn = (struct load_op *) pc;
+		struct get_index_u64 *get_index = (struct get_index_u64 *) insn->data;
+
+		dbg_printk("Validate get index u64 index %llu\n",
+			(unsigned long long) get_index->index);
+		break;
+	}
 	}
 end:
 	return ret;
@@ -787,7 +1093,7 @@ int validate_instruction_all_contexts(struct bytecode_runtime *bytecode,
 
 	/* Validate the context resulting from the previous instruction */
 	ret = validate_instruction_context(bytecode, stack, start_pc, pc);
-	if (ret)
+	if (ret < 0)
 		return ret;
 
 	/* Validate merge points */
@@ -848,6 +1154,39 @@ int exec_insn(struct bytecode_runtime *bytecode,
 			ret = -EINVAL;
 			goto end;
 		}
+		switch (vstack_ax(stack)->type) {
+		case REG_S64:
+		case REG_TYPE_UNKNOWN:
+			break;
+		default:
+			printk(KERN_WARNING "Unexpected register type %d at end of bytecode\n",
+				(int) vstack_ax(stack)->type);
+			ret = -EINVAL;
+			goto end;
+		}
+
+		ret = 0;
+		goto end;
+	}
+
+	case FILTER_OP_RETURN_S64:
+	{
+		if (!vstack_ax(stack)) {
+			printk(KERN_WARNING "Empty stack\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		switch (vstack_ax(stack)->type) {
+		case REG_S64:
+			break;
+		default:
+		case REG_TYPE_UNKNOWN:
+			printk(KERN_WARNING "Unexpected register type %d at end of bytecode\n",
+				(int) vstack_ax(stack)->type);
+			ret = -EINVAL;
+			goto end;
+		}
+
 		ret = 0;
 		goto end;
 	}
@@ -858,11 +1197,6 @@ int exec_insn(struct bytecode_runtime *bytecode,
 	case FILTER_OP_MOD:
 	case FILTER_OP_PLUS:
 	case FILTER_OP_MINUS:
-	case FILTER_OP_RSHIFT:
-	case FILTER_OP_LSHIFT:
-	case FILTER_OP_BIN_AND:
-	case FILTER_OP_BIN_OR:
-	case FILTER_OP_BIN_XOR:
 	/* Floating point */
 	case FILTER_OP_EQ_DOUBLE:
 	case FILTER_OP_NE_DOUBLE:
@@ -916,6 +1250,11 @@ int exec_insn(struct bytecode_runtime *bytecode,
 	case FILTER_OP_LT_S64:
 	case FILTER_OP_GE_S64:
 	case FILTER_OP_LE_S64:
+	case FILTER_OP_BIT_RSHIFT:
+	case FILTER_OP_BIT_LSHIFT:
+	case FILTER_OP_BIT_AND:
+	case FILTER_OP_BIT_OR:
+	case FILTER_OP_BIT_XOR:
 	{
 		/* Pop 2, push 1 */
 		if (vstack_pop(stack)) {
@@ -927,6 +1266,20 @@ int exec_insn(struct bytecode_runtime *bytecode,
 			ret = -EINVAL;
 			goto end;
 		}
+		switch (vstack_ax(stack)->type) {
+		case REG_S64:
+		case REG_DOUBLE:
+		case REG_STRING:
+		case REG_STAR_GLOB_STRING:
+		case REG_TYPE_UNKNOWN:
+			break;
+		default:
+			printk(KERN_WARNING "Unexpected register type %d for operation\n",
+				(int) vstack_ax(stack)->type);
+			ret = -EINVAL;
+			goto end;
+		}
+
 		vstack_ax(stack)->type = REG_S64;
 		next_pc += sizeof(struct binary_op);
 		break;
@@ -935,10 +1288,79 @@ int exec_insn(struct bytecode_runtime *bytecode,
 	/* unary */
 	case FILTER_OP_UNARY_PLUS:
 	case FILTER_OP_UNARY_MINUS:
-	case FILTER_OP_UNARY_NOT:
+	{
+		/* Pop 1, push 1 */
+		if (!vstack_ax(stack)) {
+			printk(KERN_WARNING "Empty stack\n\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		switch (vstack_ax(stack)->type) {
+		case REG_S64:
+		case REG_TYPE_UNKNOWN:
+			break;
+		default:
+			printk(KERN_WARNING "Unexpected register type %d for operation\n",
+				(int) vstack_ax(stack)->type);
+			ret = -EINVAL;
+			goto end;
+		}
+
+		vstack_ax(stack)->type = REG_TYPE_UNKNOWN;
+		next_pc += sizeof(struct unary_op);
+		break;
+	}
+
 	case FILTER_OP_UNARY_PLUS_S64:
 	case FILTER_OP_UNARY_MINUS_S64:
 	case FILTER_OP_UNARY_NOT_S64:
+	{
+		/* Pop 1, push 1 */
+		if (!vstack_ax(stack)) {
+			printk(KERN_WARNING "Empty stack\n\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		switch (vstack_ax(stack)->type) {
+		case REG_S64:
+			break;
+		default:
+			printk(KERN_WARNING "Unexpected register type %d for operation\n",
+				(int) vstack_ax(stack)->type);
+			ret = -EINVAL;
+			goto end;
+		}
+
+		vstack_ax(stack)->type = REG_S64;
+		next_pc += sizeof(struct unary_op);
+		break;
+	}
+
+	case FILTER_OP_UNARY_NOT:
+	{
+		/* Pop 1, push 1 */
+		if (!vstack_ax(stack)) {
+			printk(KERN_WARNING "Empty stack\n\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		switch (vstack_ax(stack)->type) {
+		case REG_S64:
+		case REG_TYPE_UNKNOWN:
+			break;
+		default:
+			printk(KERN_WARNING "Unexpected register type %d for operation\n",
+				(int) vstack_ax(stack)->type);
+			ret = -EINVAL;
+			goto end;
+		}
+
+		vstack_ax(stack)->type = REG_S64;
+		next_pc += sizeof(struct unary_op);
+		break;
+	}
+
+	case FILTER_OP_UNARY_BIT_NOT:
 	{
 		/* Pop 1, push 1 */
 		if (!vstack_ax(stack)) {
@@ -946,6 +1368,18 @@ int exec_insn(struct bytecode_runtime *bytecode,
 			ret = -EINVAL;
 			goto end;
 		}
+		switch (vstack_ax(stack)->type) {
+		case REG_S64:
+		case REG_TYPE_UNKNOWN:
+			break;
+		case REG_DOUBLE:
+		default:
+			printk(KERN_WARNING "Unexpected register type %d for operation\n",
+				(int) vstack_ax(stack)->type);
+			ret = -EINVAL;
+			goto end;
+		}
+
 		vstack_ax(stack)->type = REG_S64;
 		next_pc += sizeof(struct unary_op);
 		break;
@@ -965,6 +1399,23 @@ int exec_insn(struct bytecode_runtime *bytecode,
 			ret = merge_ret;
 			goto end;
 		}
+
+		if (!vstack_ax(stack)) {
+			printk(KERN_WARNING "Empty stack\n\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		/* There is always a cast-to-s64 operation before a or/and op. */
+		switch (vstack_ax(stack)->type) {
+		case REG_S64:
+			break;
+		default:
+			printk(KERN_WARNING "Incorrect register type %d for operation\n",
+				(int) vstack_ax(stack)->type);
+			ret = -EINVAL;
+			goto end;
+		}
+
 		/* Continue to next instruction */
 		/* Pop 1 when jump not taken */
 		if (vstack_pop(stack)) {
@@ -1062,6 +1513,17 @@ int exec_insn(struct bytecode_runtime *bytecode,
 			ret = -EINVAL;
 			goto end;
 		}
+		switch (vstack_ax(stack)->type) {
+		case REG_S64:
+		case REG_DOUBLE:
+		case REG_TYPE_UNKNOWN:
+			break;
+		default:
+			printk(KERN_WARNING "Incorrect register type %d for cast\n",
+				(int) vstack_ax(stack)->type);
+			ret = -EINVAL;
+			goto end;
+		}
 		vstack_ax(stack)->type = REG_S64;
 		next_pc += sizeof(struct cast_op);
 		break;
@@ -1069,6 +1531,154 @@ int exec_insn(struct bytecode_runtime *bytecode,
 	case FILTER_OP_CAST_NOP:
 	{
 		next_pc += sizeof(struct cast_op);
+		break;
+	}
+
+	/*
+	 * Instructions for recursive traversal through composed types.
+	 */
+	case FILTER_OP_GET_CONTEXT_ROOT:
+	case FILTER_OP_GET_APP_CONTEXT_ROOT:
+	case FILTER_OP_GET_PAYLOAD_ROOT:
+	{
+		if (vstack_push(stack)) {
+			ret = -EINVAL;
+			goto end;
+		}
+		vstack_ax(stack)->type = REG_PTR;
+		next_pc += sizeof(struct load_op);
+		break;
+	}
+
+	case FILTER_OP_LOAD_FIELD:
+	{
+		/* Pop 1, push 1 */
+		if (!vstack_ax(stack)) {
+			printk(KERN_WARNING "Empty stack\n\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		if (vstack_ax(stack)->type != REG_PTR) {
+			printk(KERN_WARNING "Expecting pointer on top of stack\n\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		vstack_ax(stack)->type = REG_TYPE_UNKNOWN;
+		next_pc += sizeof(struct load_op);
+		break;
+	}
+
+	case FILTER_OP_LOAD_FIELD_S8:
+	case FILTER_OP_LOAD_FIELD_S16:
+	case FILTER_OP_LOAD_FIELD_S32:
+	case FILTER_OP_LOAD_FIELD_S64:
+	case FILTER_OP_LOAD_FIELD_U8:
+	case FILTER_OP_LOAD_FIELD_U16:
+	case FILTER_OP_LOAD_FIELD_U32:
+	case FILTER_OP_LOAD_FIELD_U64:
+	{
+		/* Pop 1, push 1 */
+		if (!vstack_ax(stack)) {
+			printk(KERN_WARNING "Empty stack\n\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		if (vstack_ax(stack)->type != REG_PTR) {
+			printk(KERN_WARNING "Expecting pointer on top of stack\n\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		vstack_ax(stack)->type = REG_S64;
+		next_pc += sizeof(struct load_op);
+		break;
+	}
+
+	case FILTER_OP_LOAD_FIELD_STRING:
+	case FILTER_OP_LOAD_FIELD_SEQUENCE:
+	{
+		/* Pop 1, push 1 */
+		if (!vstack_ax(stack)) {
+			printk(KERN_WARNING "Empty stack\n\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		if (vstack_ax(stack)->type != REG_PTR) {
+			printk(KERN_WARNING "Expecting pointer on top of stack\n\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		vstack_ax(stack)->type = REG_STRING;
+		next_pc += sizeof(struct load_op);
+		break;
+	}
+
+	case FILTER_OP_LOAD_FIELD_DOUBLE:
+	{
+		/* Pop 1, push 1 */
+		if (!vstack_ax(stack)) {
+			printk(KERN_WARNING "Empty stack\n\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		if (vstack_ax(stack)->type != REG_PTR) {
+			printk(KERN_WARNING "Expecting pointer on top of stack\n\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		vstack_ax(stack)->type = REG_DOUBLE;
+		next_pc += sizeof(struct load_op);
+		break;
+	}
+
+	case FILTER_OP_GET_SYMBOL:
+	case FILTER_OP_GET_SYMBOL_FIELD:
+	{
+		/* Pop 1, push 1 */
+		if (!vstack_ax(stack)) {
+			printk(KERN_WARNING "Empty stack\n\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		if (vstack_ax(stack)->type != REG_PTR) {
+			printk(KERN_WARNING "Expecting pointer on top of stack\n\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		next_pc += sizeof(struct load_op) + sizeof(struct get_symbol);
+		break;
+	}
+
+	case FILTER_OP_GET_INDEX_U16:
+	{
+		/* Pop 1, push 1 */
+		if (!vstack_ax(stack)) {
+			printk(KERN_WARNING "Empty stack\n\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		if (vstack_ax(stack)->type != REG_PTR) {
+			printk(KERN_WARNING "Expecting pointer on top of stack\n\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		next_pc += sizeof(struct load_op) + sizeof(struct get_index_u16);
+		break;
+	}
+
+	case FILTER_OP_GET_INDEX_U64:
+	{
+		/* Pop 1, push 1 */
+		if (!vstack_ax(stack)) {
+			printk(KERN_WARNING "Empty stack\n\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		if (vstack_ax(stack)->type != REG_PTR) {
+			printk(KERN_WARNING "Expecting pointer on top of stack\n\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		next_pc += sizeof(struct load_op) + sizeof(struct get_index_u64);
 		break;
 	}
 
@@ -1095,7 +1705,7 @@ int lttng_filter_validate_bytecode(struct bytecode_runtime *bytecode)
 		printk(KERN_WARNING "Error allocating hash table for bytecode validation\n");
 		return -ENOMEM;
 	}
-	start_pc = &bytecode->data[0];
+	start_pc = &bytecode->code[0];
 	for (pc = next_pc = start_pc; pc - start_pc < bytecode->len;
 			pc = next_pc) {
 		ret = bytecode_validate_overflow(bytecode, start_pc, pc);
@@ -1111,7 +1721,7 @@ int lttng_filter_validate_bytecode(struct bytecode_runtime *bytecode)
 		/*
 		 * For each instruction, validate the current context
 		 * (traversal of entire execution flow), and validate
-		 * all 	merge points targeting this instruction.
+		 * all merge points targeting this instruction.
 		 */
 		ret = validate_instruction_all_contexts(bytecode, mp_table,
 					&stack, start_pc, pc);

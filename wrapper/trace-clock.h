@@ -1,28 +1,15 @@
-#ifndef _LTTNG_TRACE_CLOCK_H
-#define _LTTNG_TRACE_CLOCK_H
-
-/*
+/* SPDX-License-Identifier: (GPL-2.0 or LGPL-2.1)
+ *
  * wrapper/trace-clock.h
  *
  * Contains LTTng trace clock mapping to LTTng trace clock or mainline monotonic
  * clock. This wrapper depends on CONFIG_HIGH_RES_TIMERS=y.
  *
  * Copyright (C) 2011-2012 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; only
- * version 2.1 of the License.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
+
+#ifndef _LTTNG_TRACE_CLOCK_H
+#define _LTTNG_TRACE_CLOCK_H
 
 #ifdef CONFIG_HAVE_TRACE_CLOCK
 #include <linux/trace-clock.h>
@@ -40,11 +27,7 @@
 #include <wrapper/compiler.h>
 #include <wrapper/percpu-defs.h>
 #include <wrapper/random.h>
-
-#if ((LTTNG_KERNEL_RANGE(3,10,0, 3,10,14) && !LTTNG_RHEL_KERNEL_RANGE(3,10,0,123,0,0, 3,10,14,0,0,0)) \
-	|| LTTNG_KERNEL_RANGE(3,11,0, 3,11,3))
-#error "Linux kernels 3.10 and 3.11 introduce a deadlock in the timekeeping subsystem. Fixed by commit 7bd36014460f793c19e7d6c94dab67b0afcfcb7f \"timekeeping: Fix HRTICK related deadlock from ntp lock changes\" in Linux."
-#endif
+#include <blacklist/timekeeping.h>
 
 extern struct lttng_trace_clock *lttng_trace_clock;
 

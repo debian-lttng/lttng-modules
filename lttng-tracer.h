@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: (GPL-2.0 or LGPL-2.1) */
 #ifndef _LTTNG_TRACER_H
 #define _LTTNG_TRACER_H
 
@@ -8,20 +9,6 @@
  * Generation tracer.
  *
  * Copyright (C) 2005-2012 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; only
- * version 2.1 of the License.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <stdarg.h>
@@ -41,12 +28,12 @@
 #include <lttng-events.h>
 
 #define LTTNG_MODULES_MAJOR_VERSION 2
-#define LTTNG_MODULES_MINOR_VERSION 10
-#define LTTNG_MODULES_PATCHLEVEL_VERSION 11
+#define LTTNG_MODULES_MINOR_VERSION 11
+#define LTTNG_MODULES_PATCHLEVEL_VERSION 0
 #define LTTNG_MODULES_EXTRAVERSION ""
 
-#define LTTNG_VERSION_NAME		"KeKriek"
-#define LTTNG_VERSION_DESCRIPTION	"From Brasserie Dunham, a sour mashed golden wheat ale fermented with local sour cherries from Tougas orchards. Fresh sweet cherry notes with some tartness, lively carbonation with a dry finish."
+#define LTTNG_VERSION_NAME		"Lafontaine"
+#define LTTNG_VERSION_DESCRIPTION	"A modern Saison beer from Montréal's Oshlag microbrewery, Lafontaine is a refreshing, zesty, rice beer with hints of fruit and spices."
 
 #ifndef CHAR_BIT
 #define CHAR_BIT 8

@@ -1,23 +1,10 @@
-/*
+/* SPDX-License-Identifier: (GPL-2.0 or LGPL-2.1)
+ *
  * lttng-context.c
  *
  * LTTng trace/channel/event context management.
  *
  * Copyright (C) 2011-2012 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; only
- * version 2.1 of the License.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <linux/module.h>
@@ -128,6 +115,7 @@ void lttng_context_update(struct lttng_ctx *ctx)
 			field_align = type->u.basic.integer.alignment;
 			break;
 		case atype_array:
+		case atype_array_bitfield:
 		{
 			struct lttng_basic_type *btype;
 
@@ -141,6 +129,8 @@ void lttng_context_update(struct lttng_ctx *ctx)
 
 			case atype_array:
 			case atype_sequence:
+			case atype_array_bitfield:
+			case atype_sequence_bitfield:
 			case atype_struct:
 			case atype_array_compound:
 			case atype_sequence_compound:
@@ -152,6 +142,7 @@ void lttng_context_update(struct lttng_ctx *ctx)
 			break;
 		}
 		case atype_sequence:
+		case atype_sequence_bitfield:
 		{
 			struct lttng_basic_type *btype;
 
@@ -164,6 +155,8 @@ void lttng_context_update(struct lttng_ctx *ctx)
 			case atype_string:
 			case atype_array:
 			case atype_sequence:
+			case atype_array_bitfield:
+			case atype_sequence_bitfield:
 			case atype_struct:
 			case atype_array_compound:
 			case atype_sequence_compound:
@@ -186,6 +179,8 @@ void lttng_context_update(struct lttng_ctx *ctx)
 
 			case atype_array:
 			case atype_sequence:
+			case atype_array_bitfield:
+			case atype_sequence_bitfield:
 			case atype_struct:
 			case atype_array_compound:
 			case atype_sequence_compound:

@@ -1,23 +1,10 @@
-/*
+/* SPDX-License-Identifier: (GPL-2.0 or LGPL-2.1)
+ *
  * lttng-ring-buffer-client.h
  *
  * LTTng lib ring buffer client template.
  *
  * Copyright (C) 2010-2012 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; only
- * version 2.1 of the License.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <linux/module.h>
@@ -58,7 +45,8 @@ static inline
 size_t record_header_size(const struct lib_ring_buffer_config *config,
 				 struct channel *chan, size_t offset,
 				 size_t *pre_header_padding,
-				 struct lib_ring_buffer_ctx *ctx)
+				 struct lib_ring_buffer_ctx *ctx,
+				 void *client_ctx)
 {
 	return 0;
 }
@@ -74,7 +62,8 @@ static
 size_t client_record_header_size(const struct lib_ring_buffer_config *config,
 				 struct channel *chan, size_t offset,
 				 size_t *pre_header_padding,
-				 struct lib_ring_buffer_ctx *ctx)
+				 struct lib_ring_buffer_ctx *ctx,
+				 void *client_ctx)
 {
 	return 0;
 }
@@ -314,7 +303,7 @@ int lttng_event_reserve(struct lib_ring_buffer_ctx *ctx, uint32_t event_id)
 {
 	int ret;
 
-	ret = lib_ring_buffer_reserve(&client_config, ctx);
+	ret = lib_ring_buffer_reserve(&client_config, ctx, NULL);
 	if (ret)
 		return ret;
 	lib_ring_buffer_backend_get_pages(&client_config, ctx,
@@ -454,6 +443,10 @@ static void __exit lttng_ring_buffer_client_exit(void)
 module_exit(lttng_ring_buffer_client_exit);
 
 MODULE_LICENSE("GPL and additional rights");
-MODULE_AUTHOR("Mathieu Desnoyers");
+MODULE_AUTHOR("Mathieu Desnoyers <mathieu.desnoyers@efficios.com>");
 MODULE_DESCRIPTION("LTTng ring buffer " RING_BUFFER_MODE_TEMPLATE_STRING
 		   " client");
+MODULE_VERSION(__stringify(LTTNG_MODULES_MAJOR_VERSION) "."
+	__stringify(LTTNG_MODULES_MINOR_VERSION) "."
+	__stringify(LTTNG_MODULES_PATCHLEVEL_VERSION)
+	LTTNG_MODULES_EXTRAVERSION);

@@ -1,6 +1,4 @@
-#
-# Makefile for the LTT objects.
-#
+# SPDX-License-Identifier: (GPL-2.0 or LGPL-2.1)
 
 ifneq ($(KERNELRELEASE),)
 
@@ -29,7 +27,7 @@ ifneq ($(KERNELRELEASE),)
     endif
   endif
 
-  include $(TOP_LTTNG_MODULES_DIR)/Makefile.ABI.workarounds
+  include $(TOP_LTTNG_MODULES_DIR)/Kbuild.common
 
   ccflags-y += -I$(TOP_LTTNG_MODULES_DIR)
 
@@ -51,7 +49,8 @@ ifneq ($(KERNELRELEASE),)
                        lttng-context-vtid.o lttng-context-ppid.o \
                        lttng-context-vppid.o lttng-context-cpu-id.o \
                        lttng-context-interruptible.o \
-                       lttng-context-need-reschedule.o lttng-calibrate.o \
+                       lttng-context-need-reschedule.o \
+                       lttng-context-callstack.o lttng-calibrate.o \
                        lttng-context-hostname.o wrapper/random.o \
                        probes/lttng.o wrapper/trace-clock.o \
                        wrapper/page_alloc.o \

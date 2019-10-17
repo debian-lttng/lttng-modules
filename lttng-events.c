@@ -1,23 +1,10 @@
-/*
+/* SPDX-License-Identifier: (GPL-2.0 or LGPL-2.1)
+ *
  * lttng-events.c
  *
  * Holds LTTng per-session event registry.
  *
  * Copyright (C) 2010-2012 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; only
- * version 2.1 of the License.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /*
@@ -347,8 +334,6 @@ end:
 	return ret;
 }
 
-
-
 int lttng_channel_enable(struct lttng_channel *channel)
 {
 	int ret = 0;
@@ -415,6 +400,7 @@ int lttng_event_enable(struct lttng_event *event)
 		break;
 	case LTTNG_KERNEL_KPROBE:
 	case LTTNG_KERNEL_FUNCTION:
+	case LTTNG_KERNEL_UPROBE:
 	case LTTNG_KERNEL_NOOP:
 		WRITE_ONCE(event->enabled, 1);
 		break;
@@ -450,6 +436,7 @@ int lttng_event_disable(struct lttng_event *event)
 		break;
 	case LTTNG_KERNEL_KPROBE:
 	case LTTNG_KERNEL_FUNCTION:
+	case LTTNG_KERNEL_UPROBE:
 	case LTTNG_KERNEL_NOOP:
 		WRITE_ONCE(event->enabled, 0);
 		break;
@@ -596,6 +583,7 @@ struct lttng_event *_lttng_event_create(struct lttng_channel *chan,
 		event_name = event_desc->name;
 		break;
 	case LTTNG_KERNEL_KPROBE:
+	case LTTNG_KERNEL_UPROBE:
 	case LTTNG_KERNEL_KRETPROBE:
 	case LTTNG_KERNEL_FUNCTION:
 	case LTTNG_KERNEL_NOOP:
@@ -759,6 +747,28 @@ struct lttng_event *_lttng_event_create(struct lttng_channel *chan,
 			goto register_error;
 		}
 		break;
+	case LTTNG_KERNEL_UPROBE:
+		/*
+		 * Needs to be explicitly enabled after creation, since
+		 * we may want to apply filters.
+		 */
+		event->enabled = 0;
+		event->registered = 1;
+
+		/*
+		 * Populate lttng_event structure before event
+		 * registration.
+		 */
+		smp_wmb();
+
+		ret = lttng_uprobes_register(event_param->name,
+				event_param->u.uprobe.fd,
+				event);
+		if (ret)
+			goto register_error;
+		ret = try_module_get(event->desc->owner);
+		WARN_ON_ONCE(!ret);
+		break;
 	default:
 		WARN_ON_ONCE(1);
 		ret = -EINVAL;
@@ -821,6 +831,7 @@ void register_event(struct lttng_event *event)
 			desc->name);
 		break;
 	case LTTNG_KERNEL_KPROBE:
+	case LTTNG_KERNEL_UPROBE:
 	case LTTNG_KERNEL_KRETPROBE:
 	case LTTNG_KERNEL_FUNCTION:
 	case LTTNG_KERNEL_NOOP:
@@ -870,6 +881,10 @@ int _lttng_event_unregister(struct lttng_event *event)
 	case LTTNG_KERNEL_NOOP:
 		ret = 0;
 		break;
+	case LTTNG_KERNEL_UPROBE:
+		lttng_uprobes_unregister(event);
+		ret = 0;
+		break;
 	default:
 		WARN_ON_ONCE(1);
 	}
@@ -902,6 +917,10 @@ void _lttng_event_destroy(struct lttng_event *event)
 		break;
 	case LTTNG_KERNEL_NOOP:
 	case LTTNG_KERNEL_SYSCALL:
+		break;
+	case LTTNG_KERNEL_UPROBE:
+		module_put(event->desc->owner);
+		lttng_uprobes_destroy_private(event);
 		break;
 	default:
 		WARN_ON_ONCE(1);
@@ -1450,6 +1469,18 @@ int lttng_enabler_attach_bytecode(struct lttng_enabler *enabler,
 error_free:
 	kfree(bytecode_node);
 	return ret;
+}
+
+int lttng_event_add_callsite(struct lttng_event *event,
+		struct lttng_kernel_event_callsite __user *callsite)
+{
+
+	switch (event->instrumentation) {
+	case LTTNG_KERNEL_UPROBE:
+		return lttng_uprobes_add_callsite(event, callsite);
+	default:
+		return -EINVAL;
+	}
 }
 
 int lttng_enabler_attach_context(struct lttng_enabler *enabler,
@@ -2055,6 +2086,7 @@ int _lttng_field_statedump(struct lttng_session *session,
 		ret = _lttng_enum_statedump(session, field, nesting);
 		break;
 	case atype_array:
+	case atype_array_bitfield:
 	{
 		const struct lttng_basic_type *elem_type;
 
@@ -2093,6 +2125,7 @@ int _lttng_field_statedump(struct lttng_session *session,
 		break;
 	}
 	case atype_sequence:
+	case atype_sequence_bitfield:
 	{
 		const struct lttng_basic_type *elem_type;
 		const struct lttng_basic_type *length_type;
@@ -2446,6 +2479,61 @@ int64_t measure_clock_offset(void)
 	return offset;
 }
 
+static
+int print_escaped_ctf_string(struct lttng_session *session, const char *string)
+{
+	int ret;
+	size_t i;
+	char cur;
+
+	i = 0;
+	cur = string[i];
+	while (cur != '\0') {
+		switch (cur) {
+		case '\n':
+			ret = lttng_metadata_printf(session, "%s", "\\n");
+			break;
+		case '\\':
+		case '"':
+			ret = lttng_metadata_printf(session, "%c", '\\');
+			if (ret)
+				goto error;
+			/* We still print the current char */
+			/* Fallthrough */
+		default:
+			ret = lttng_metadata_printf(session, "%c", cur);
+			break;
+		}
+
+		if (ret)
+			goto error;
+
+		cur = string[++i];
+	}
+error:
+	return ret;
+}
+
+static
+int print_metadata_escaped_field(struct lttng_session *session, const char *field,
+		const char *field_value)
+{
+	int ret;
+
+	ret = lttng_metadata_printf(session, "	%s = \"", field);
+	if (ret)
+		goto error;
+
+	ret = print_escaped_ctf_string(session, field_value);
+	if (ret)
+		goto error;
+
+	ret = lttng_metadata_printf(session, "\";\n");
+
+error:
+	return ret;
+}
+
 /*
  * Output metadata into this session's metadata buffers.
  * Must be called with sessions_mutex held.
@@ -2521,7 +2609,7 @@ int _lttng_session_metadata_statedump(struct lttng_session *session)
 		"	tracer_major = %d;\n"
 		"	tracer_minor = %d;\n"
 		"	tracer_patchlevel = %d;\n"
-		"};\n\n",
+		"	trace_buffering_scheme = \"global\";\n",
 		current->nsproxy->uts_ns->name.nodename,
 		utsname()->sysname,
 		utsname()->release,
@@ -2530,6 +2618,19 @@ int _lttng_session_metadata_statedump(struct lttng_session *session)
 		LTTNG_MODULES_MINOR_VERSION,
 		LTTNG_MODULES_PATCHLEVEL_VERSION
 		);
+	if (ret)
+		goto end;
+
+	ret = print_metadata_escaped_field(session, "trace_name", session->name);
+	if (ret)
+		goto end;
+	ret = print_metadata_escaped_field(session, "trace_creation_datetime",
+			session->creation_time);
+	if (ret)
+		goto end;
+
+	/* Close env */
+	ret = lttng_metadata_printf(session, "};\n\n");
 	if (ret)
 		goto end;
 
@@ -2904,7 +3005,7 @@ MODULE_INFO(extra_version_name, LTTNG_EXTRA_VERSION_NAME);
 #endif
 MODULE_LICENSE("GPL and additional rights");
 MODULE_AUTHOR("Mathieu Desnoyers <mathieu.desnoyers@efficios.com>");
-MODULE_DESCRIPTION("LTTng Events");
+MODULE_DESCRIPTION("LTTng tracer");
 MODULE_VERSION(__stringify(LTTNG_MODULES_MAJOR_VERSION) "."
 	__stringify(LTTNG_MODULES_MINOR_VERSION) "."
 	__stringify(LTTNG_MODULES_PATCHLEVEL_VERSION)

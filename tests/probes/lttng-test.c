@@ -1,29 +1,17 @@
-/*
+/* SPDX-License-Identifier: (GPL-2.0 or LGPL-2.1)
+ *
  * lttng-test.c
  *
  * Linux Trace Toolkit Next Generation Test Module
  *
  * Copyright 2015 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; only
- * version 2.1 of the License.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/proc_fs.h>
 #include <linux/byteorder/generic.h>
+#include <asm/byteorder.h>
 
 #include <lttng-events.h>
 #include <lttng-tracer.h>
@@ -51,12 +39,16 @@ void trace_test_event(unsigned int nr_iter)
 {
 	int i, netint;
 	long values[] = { 1, 2, 3 };
+	uint32_t net_values[] = { 1, 2, 3 };
 	char text[10] = "test";
 	char escape[10] = "\\*";
 
+	for (i = 0; i < 3; i++) {
+		net_values[i] = htonl(net_values[i]);
+	}
 	for (i = 0; i < nr_iter; i++) {
 		netint = htonl(i);
-		trace_lttng_test_filter_event(i, netint, values, text, strlen(text), escape);
+		trace_lttng_test_filter_event(i, netint, values, text, strlen(text), escape, net_values);
 	}
 }
 
