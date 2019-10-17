@@ -1,21 +1,8 @@
-/*
+/* SPDX-License-Identifier: (GPL-2.0 or LGPL-2.1)
+ *
  * lttng-tp-mempool.c
  *
  * Copyright (C) 2018 Julien Desfossez <jdesfossez@efficios.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; only
- * version 2.1 of the License.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <linux/slab.h>
@@ -70,8 +57,8 @@ int lttng_tp_mempool_init(void)
 		for (i = 0; i < LTTNG_TP_MEMPOOL_NR_BUF_PER_CPU; i++) {
 			struct lttng_tp_buf_entry *entry;
 
-			entry = kzalloc(sizeof(struct lttng_tp_buf_entry),
-					GFP_KERNEL);
+			entry = kzalloc_node(sizeof(struct lttng_tp_buf_entry),
+					GFP_KERNEL, cpu_to_node(cpu));
 			if (!entry) {
 				ret = -ENOMEM;
 				goto error_free_pool;

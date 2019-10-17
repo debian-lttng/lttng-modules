@@ -1,33 +1,17 @@
-#ifndef _LIB_RING_BUFFER_FRONTEND_API_H
-#define _LIB_RING_BUFFER_FRONTEND_API_H
-
-/*
+/* SPDX-License-Identifier: (GPL-2.0 OR LGPL-2.1)
+ *
  * lib/ringbuffer/frontend_api.h
  *
  * Ring Buffer Library Synchronization Header (buffer write API).
  *
  * Copyright (C) 2005-2012 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; only
- * version 2.1 of the License.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
- *
- * Author:
- *	Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
- *
  * See ring_buffer_frontend.c for more information on wait-free algorithms.
  * See linux/ringbuffer/frontend.h for channel allocation and read-side API.
  */
+
+#ifndef _LIB_RING_BUFFER_FRONTEND_API_H
+#define _LIB_RING_BUFFER_FRONTEND_API_H
 
 #include <wrapper/ringbuffer/frontend.h>
 #include <wrapper/percpu-defs.h>
@@ -58,7 +42,7 @@ int lib_ring_buffer_get_cpu(const struct lib_ring_buffer_config *config)
 	nesting = ++per_cpu(lib_ring_buffer_nesting, cpu);
 	barrier();
 
-	if (unlikely(nesting > 4)) {
+	if (unlikely(nesting > RING_BUFFER_MAX_NESTING)) {
 		WARN_ON_ONCE(1);
 		per_cpu(lib_ring_buffer_nesting, cpu)--;
 		rcu_read_unlock_sched_notrace();
@@ -87,6 +71,7 @@ void lib_ring_buffer_put_cpu(const struct lib_ring_buffer_config *config)
 static inline
 int lib_ring_buffer_try_reserve(const struct lib_ring_buffer_config *config,
 				struct lib_ring_buffer_ctx *ctx,
+				void *client_ctx,
 				unsigned long *o_begin, unsigned long *o_end,
 				unsigned long *o_old, size_t *before_hdr_pad)
 {
@@ -113,7 +98,7 @@ int lib_ring_buffer_try_reserve(const struct lib_ring_buffer_config *config,
 		return 1;
 
 	ctx->slot_size = record_header_size(config, chan, *o_begin,
-					    before_hdr_pad, ctx);
+					    before_hdr_pad, ctx, client_ctx);
 	ctx->slot_size +=
 		lib_ring_buffer_align(*o_begin + ctx->slot_size,
 				      ctx->largest_align) + ctx->data_size;
@@ -155,7 +140,8 @@ int lib_ring_buffer_try_reserve(const struct lib_ring_buffer_config *config,
 
 static inline
 int lib_ring_buffer_reserve(const struct lib_ring_buffer_config *config,
-			    struct lib_ring_buffer_ctx *ctx)
+			    struct lib_ring_buffer_ctx *ctx,
+			    void *client_ctx)
 {
 	struct channel *chan = ctx->chan;
 	struct lib_ring_buffer *buf;
@@ -176,7 +162,7 @@ int lib_ring_buffer_reserve(const struct lib_ring_buffer_config *config,
 	/*
 	 * Perform retryable operations.
 	 */
-	if (unlikely(lib_ring_buffer_try_reserve(config, ctx, &o_begin,
+	if (unlikely(lib_ring_buffer_try_reserve(config, ctx, client_ctx, &o_begin,
 						 &o_end, &o_old, &before_hdr_pad)))
 		goto slow_path;
 
@@ -207,7 +193,7 @@ int lib_ring_buffer_reserve(const struct lib_ring_buffer_config *config,
 	ctx->buf_offset = o_begin + before_hdr_pad;
 	return 0;
 slow_path:
-	return lib_ring_buffer_reserve_slow(ctx);
+	return lib_ring_buffer_reserve_slow(ctx, client_ctx);
 }
 
 /**

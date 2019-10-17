@@ -1,23 +1,10 @@
-/*
+/* SPDX-License-Identifier: (GPL-2.0 or LGPL-2.1)
+ *
  * lttng-ring-buffer-client.h
  *
  * LTTng lib ring buffer client template.
  *
  * Copyright (C) 2010-2012 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; only
- * version 2.1 of the License.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <linux/module.h>
@@ -76,6 +63,10 @@ struct packet_header {
 	} ctx;
 };
 
+struct lttng_client_ctx {
+	size_t packet_context_len;
+	size_t event_context_len;
+};
 
 static inline notrace u64 lib_ring_buffer_clock_read(struct channel *chan)
 {
@@ -83,17 +74,37 @@ static inline notrace u64 lib_ring_buffer_clock_read(struct channel *chan)
 }
 
 static inline
-size_t ctx_get_size(size_t offset, struct lttng_ctx *ctx)
+size_t ctx_get_aligned_size(size_t offset, struct lttng_ctx *ctx,
+		size_t ctx_len)
 {
-	int i;
 	size_t orig_offset = offset;
 
 	if (likely(!ctx))
 		return 0;
 	offset += lib_ring_buffer_align(offset, ctx->largest_align);
-	for (i = 0; i < ctx->nr_fields; i++)
-		offset += ctx->fields[i].get_size(offset);
+	offset += ctx_len;
 	return offset - orig_offset;
+}
+
+static inline
+void ctx_get_struct_size(struct lttng_ctx *ctx, size_t *ctx_len,
+		struct lttng_channel *chan, struct lib_ring_buffer_ctx *bufctx)
+{
+	int i;
+	size_t offset = 0;
+
+	if (likely(!ctx)) {
+		*ctx_len = 0;
+		return;
+	}
+	for (i = 0; i < ctx->nr_fields; i++) {
+		if (ctx->fields[i].get_size)
+			offset += ctx->fields[i].get_size(offset);
+		if (ctx->fields[i].get_size_arg)
+			offset += ctx->fields[i].get_size_arg(offset,
+					&ctx->fields[i], bufctx, chan);
+	}
+	*ctx_len = offset;
 }
 
 static inline
@@ -127,7 +138,8 @@ static __inline__
 size_t record_header_size(const struct lib_ring_buffer_config *config,
 				 struct channel *chan, size_t offset,
 				 size_t *pre_header_padding,
-				 struct lib_ring_buffer_ctx *ctx)
+				 struct lib_ring_buffer_ctx *ctx,
+				 struct lttng_client_ctx *client_ctx)
 {
 	struct lttng_channel *lttng_chan = channel_get_private(chan);
 	struct lttng_probe_ctx *lttng_probe_ctx = ctx->priv;
@@ -170,8 +182,10 @@ size_t record_header_size(const struct lib_ring_buffer_config *config,
 		padding = 0;
 		WARN_ON_ONCE(1);
 	}
-	offset += ctx_get_size(offset, lttng_chan->ctx);
-	offset += ctx_get_size(offset, event->ctx);
+	offset += ctx_get_aligned_size(offset, lttng_chan->ctx,
+			client_ctx->packet_context_len);
+	offset += ctx_get_aligned_size(offset, event->ctx,
+			client_ctx->event_context_len);
 
 	*pre_header_padding = padding;
 	return offset - orig_offset;
@@ -324,10 +338,11 @@ static
 size_t client_record_header_size(const struct lib_ring_buffer_config *config,
 				 struct channel *chan, size_t offset,
 				 size_t *pre_header_padding,
-				 struct lib_ring_buffer_ctx *ctx)
+				 struct lib_ring_buffer_ctx *ctx,
+				 void *client_ctx)
 {
 	return record_header_size(config, chan, offset,
-				  pre_header_padding, ctx);
+				  pre_header_padding, ctx, client_ctx);
 }
 
 /**
@@ -603,12 +618,19 @@ int lttng_event_reserve(struct lib_ring_buffer_ctx *ctx,
 		      uint32_t event_id)
 {
 	struct lttng_channel *lttng_chan = channel_get_private(ctx->chan);
+	struct lttng_probe_ctx *lttng_probe_ctx = ctx->priv;
+	struct lttng_event *event = lttng_probe_ctx->event;
+	struct lttng_client_ctx client_ctx;
 	int ret, cpu;
 
 	cpu = lib_ring_buffer_get_cpu(&client_config);
 	if (unlikely(cpu < 0))
 		return -EPERM;
 	ctx->cpu = cpu;
+
+	/* Compute internal size of context structures. */
+	ctx_get_struct_size(lttng_chan->ctx, &client_ctx.packet_context_len, lttng_chan, ctx);
+	ctx_get_struct_size(event->ctx, &client_ctx.event_context_len, lttng_chan, ctx);
 
 	switch (lttng_chan->header_type) {
 	case 1:	/* compact */
@@ -623,7 +645,7 @@ int lttng_event_reserve(struct lib_ring_buffer_ctx *ctx,
 		WARN_ON_ONCE(1);
 	}
 
-	ret = lib_ring_buffer_reserve(&client_config, ctx);
+	ret = lib_ring_buffer_reserve(&client_config, ctx, &client_ctx);
 	if (unlikely(ret))
 		goto put;
 	lib_ring_buffer_backend_get_pages(&client_config, ctx,
@@ -759,6 +781,10 @@ static void __exit lttng_ring_buffer_client_exit(void)
 module_exit(lttng_ring_buffer_client_exit);
 
 MODULE_LICENSE("GPL and additional rights");
-MODULE_AUTHOR("Mathieu Desnoyers");
+MODULE_AUTHOR("Mathieu Desnoyers <mathieu.desnoyers@efficios.com>");
 MODULE_DESCRIPTION("LTTng ring buffer " RING_BUFFER_MODE_TEMPLATE_STRING
 		   " client");
+MODULE_VERSION(__stringify(LTTNG_MODULES_MAJOR_VERSION) "."
+	__stringify(LTTNG_MODULES_MINOR_VERSION) "."
+	__stringify(LTTNG_MODULES_PATCHLEVEL_VERSION)
+	LTTNG_MODULES_EXTRAVERSION);

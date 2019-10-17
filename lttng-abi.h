@@ -1,27 +1,14 @@
-#ifndef _LTTNG_ABI_H
-#define _LTTNG_ABI_H
-
-/*
+/* SPDX-License-Identifier: (GPL-2.0 or LGPL-2.1)
+ *
  * lttng-abi.h
  *
  * LTTng ABI header
  *
  * Copyright (C) 2010-2012 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; only
- * version 2.1 of the License.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
+
+#ifndef _LTTNG_ABI_H
+#define _LTTNG_ABI_H
 
 #include <linux/fs.h>
 
@@ -30,9 +17,11 @@
  * should be increased when an incompatible ABI change is done.
  */
 #define LTTNG_MODULES_ABI_MAJOR_VERSION		2
-#define LTTNG_MODULES_ABI_MINOR_VERSION		3
+#define LTTNG_MODULES_ABI_MINOR_VERSION		4
 
 #define LTTNG_KERNEL_SYM_NAME_LEN	256
+#define LTTNG_KERNEL_SESSION_NAME_LEN	256
+#define LTTNG_KERNEL_SESSION_CREATION_TIME_ISO8601_LEN	26
 
 enum lttng_kernel_instrumentation {
 	LTTNG_KERNEL_TRACEPOINT	= 0,
@@ -41,6 +30,7 @@ enum lttng_kernel_instrumentation {
 	LTTNG_KERNEL_KRETPROBE	= 3,
 	LTTNG_KERNEL_NOOP	= 4,	/* not hooked */
 	LTTNG_KERNEL_SYSCALL	= 5,
+	LTTNG_KERNEL_UPROBE	= 6,
 };
 
 /*
@@ -86,6 +76,20 @@ struct lttng_kernel_function_tracer {
 	char symbol_name[LTTNG_KERNEL_SYM_NAME_LEN];
 } __attribute__((packed));
 
+struct lttng_kernel_uprobe {
+	int fd;
+} __attribute__((packed));
+
+struct lttng_kernel_event_callsite_uprobe {
+	uint64_t offset;
+} __attribute__((packed));
+
+struct lttng_kernel_event_callsite {
+	union {
+		struct lttng_kernel_event_callsite_uprobe uprobe;
+	} u;
+} __attribute__((packed));
+
 /*
  * For syscall tracing, name = "*" means "enable all".
  */
@@ -101,6 +105,7 @@ struct lttng_kernel_event {
 		struct lttng_kernel_kretprobe kretprobe;
 		struct lttng_kernel_kprobe kprobe;
 		struct lttng_kernel_function_tracer ftrace;
+		struct lttng_kernel_uprobe uprobe;
 		char padding[LTTNG_KERNEL_EVENT_PADDING2];
 	} u;
 } __attribute__((packed));
@@ -114,6 +119,14 @@ struct lttng_kernel_tracer_version {
 struct lttng_kernel_tracer_abi_version {
 	uint32_t major;
 	uint32_t minor;
+} __attribute__((packed));
+
+struct lttng_kernel_session_name {
+	char name[LTTNG_KERNEL_SESSION_NAME_LEN];
+} __attribute__((packed));
+
+struct lttng_kernel_session_creation_time {
+	char iso8601[LTTNG_KERNEL_SESSION_CREATION_TIME_ISO8601_LEN];
 } __attribute__((packed));
 
 enum lttng_kernel_calibrate_type {
@@ -146,6 +159,8 @@ enum lttng_kernel_context_type {
 	LTTNG_KERNEL_CONTEXT_PREEMPTIBLE	= 13,
 	LTTNG_KERNEL_CONTEXT_NEED_RESCHEDULE	= 14,
 	LTTNG_KERNEL_CONTEXT_MIGRATABLE		= 15,
+	LTTNG_KERNEL_CONTEXT_CALLSTACK_KERNEL	= 16,
+	LTTNG_KERNEL_CONTEXT_CALLSTACK_USER	= 17,
 };
 
 struct lttng_kernel_perf_counter_ctx {
@@ -204,8 +219,13 @@ struct lttng_kernel_filter_bytecode {
  */
 #define LTTNG_KERNEL_SESSION_LIST_TRACKER_PIDS	_IO(0xF6, 0x58)
 #define LTTNG_KERNEL_SESSION_METADATA_REGEN	_IO(0xF6, 0x59)
+
 /* 0x5A and 0x5B are reserved for a future ABI-breaking cleanup. */
 #define LTTNG_KERNEL_SESSION_STATEDUMP		_IO(0xF6, 0x5C)
+#define LTTNG_KERNEL_SESSION_SET_NAME		\
+	_IOR(0xF6, 0x5D, struct lttng_kernel_session_name)
+#define LTTNG_KERNEL_SESSION_SET_CREATION_TIME		\
+	_IOR(0xF6, 0x5E, struct lttng_kernel_session_creation_time)
 
 /* Channel FD ioctl */
 #define LTTNG_KERNEL_STREAM			_IO(0xF6, 0x62)
@@ -224,6 +244,7 @@ struct lttng_kernel_filter_bytecode {
 
 /* Event FD ioctl */
 #define LTTNG_KERNEL_FILTER			_IO(0xF6, 0x90)
+#define LTTNG_KERNEL_ADD_CALLSITE		_IO(0xF6, 0x91)
 
 /*
  * LTTng-specific ioctls for the lib ringbuffer.

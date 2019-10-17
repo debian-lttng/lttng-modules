@@ -1,23 +1,10 @@
-/*
+/* SPDX-License-Identifier: (GPL-2.0 or LGPL-2.1)
+ *
  * lttng.c
  *
  * LTTng logger ABI
  *
  * Copyright (C) 2008-2014 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; only
- * version 2.1 of the License.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #include <linux/module.h>
@@ -28,6 +15,7 @@
 #include <linux/proc_fs.h>
 #include <linux/slab.h>
 #include <linux/mm.h>
+#include <linux/miscdevice.h>
 #include <wrapper/vmalloc.h>
 #include <lttng-events.h>
 
@@ -105,19 +93,37 @@ static const struct file_operations lttng_logger_operations = {
 	.write = lttng_logger_write,
 };
 
+static struct miscdevice logger_dev = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "lttng-logger",
+	.mode = 0666,
+	.fops = &lttng_logger_operations
+};
+
 int __init lttng_logger_init(void)
 {
 	int ret = 0;
 
 	wrapper_vmalloc_sync_all();
+
+	/* /dev/lttng-logger */
+	ret = misc_register(&logger_dev);
+	if (ret) {
+		printk(KERN_ERR "Error creating LTTng logger device\n");
+		goto error;
+	}
+
+	/* /proc/lttng-logger */
 	lttng_logger_dentry = proc_create_data(LTTNG_LOGGER_FILE,
 				S_IRUGO | S_IWUGO, NULL,
 				&lttng_logger_operations, NULL);
 	if (!lttng_logger_dentry) {
-		printk(KERN_ERR "Error creating LTTng logger file\n");
+		printk(KERN_ERR "Error creating LTTng logger proc file\n");
 		ret = -ENOMEM;
-		goto error;
+		goto error_proc;
 	}
+
+	/* Init */
 	ret = __lttng_events_init__lttng();
 	if (ret)
 		goto error_events;
@@ -125,6 +131,8 @@ int __init lttng_logger_init(void)
 
 error_events:
 	remove_proc_entry("lttng-logger", NULL);
+error_proc:
+	misc_deregister(&logger_dev);
 error:
 	return ret;
 }
@@ -134,4 +142,5 @@ void lttng_logger_exit(void)
 	__lttng_events_exit__lttng();
 	if (lttng_logger_dentry)
 		remove_proc_entry("lttng-logger", NULL);
+	misc_deregister(&logger_dev);
 }

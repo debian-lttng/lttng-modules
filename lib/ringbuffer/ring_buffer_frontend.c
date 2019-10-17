@@ -1,22 +1,8 @@
-/*
+/* SPDX-License-Identifier: (GPL-2.0 OR LGPL-2.1)
+ *
  * ring_buffer_frontend.c
  *
  * Copyright (C) 2005-2012 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; only
- * version 2.1 of the License.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
- *
  *
  * Ring buffer wait-free buffer synchronization. Producer-consumer and flight
  * recorder (overwrite) modes. See thesis:
@@ -1982,7 +1968,8 @@ static
 int lib_ring_buffer_try_reserve_slow(struct lib_ring_buffer *buf,
 				     struct channel *chan,
 				     struct switch_offsets *offsets,
-				     struct lib_ring_buffer_ctx *ctx)
+				     struct lib_ring_buffer_ctx *ctx,
+				     void *client_ctx)
 {
 	const struct lib_ring_buffer_config *config = &chan->backend.config;
 	unsigned long reserve_commit_diff, offset_cmp;
@@ -2008,7 +1995,7 @@ retry:
 		offsets->size = config->cb.record_header_size(config, chan,
 						offsets->begin,
 						&offsets->pre_header_padding,
-						ctx);
+						ctx, client_ctx);
 		offsets->size +=
 			lib_ring_buffer_align(offsets->begin + offsets->size,
 					      ctx->largest_align)
@@ -2092,7 +2079,7 @@ retry:
 			config->cb.record_header_size(config, chan,
 						offsets->begin,
 						&offsets->pre_header_padding,
-						ctx);
+						ctx, client_ctx);
 		offsets->size +=
 			lib_ring_buffer_align(offsets->begin + offsets->size,
 					      ctx->largest_align)
@@ -2156,7 +2143,8 @@ EXPORT_SYMBOL_GPL(lib_ring_buffer_lost_event_too_big);
  * -EIO for other errors, else returns 0.
  * It will take care of sub-buffer switching.
  */
-int lib_ring_buffer_reserve_slow(struct lib_ring_buffer_ctx *ctx)
+int lib_ring_buffer_reserve_slow(struct lib_ring_buffer_ctx *ctx,
+		void *client_ctx)
 {
 	struct channel *chan = ctx->chan;
 	const struct lib_ring_buffer_config *config = &chan->backend.config;
@@ -2169,7 +2157,7 @@ int lib_ring_buffer_reserve_slow(struct lib_ring_buffer_ctx *ctx)
 
 	do {
 		ret = lib_ring_buffer_try_reserve_slow(buf, chan, &offsets,
-						       ctx);
+						       ctx, client_ctx);
 		if (unlikely(ret))
 			return ret;
 	} while (unlikely(v_cmpxchg(config, &buf->offset, offsets.old,
