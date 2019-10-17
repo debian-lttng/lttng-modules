@@ -3,23 +3,11 @@ Upstream-Name: lttng-modules
 Source: https://lttng.org
 
 Files: *
-Copyright: 2005-2016 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
-License: LGPL-2.1
-
-Files: ChangeLog
-  CodingStyle
-  Kconfig
-  Makefile
-  TODO
-  abi-debian-version.sh
-  abi-rhel-version.sh
-  built-in.sh
-  rt-patch-version.sh
-Copyright: 2005-2015 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+Copyright: 2005-2019 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
 License: LGPL-2.1
 
 Files: debian/*
-Copyright: 2011-2016 Michael Jeanson <mjeanson@ubuntu.com>
+Copyright: 2011-2019 Michael Jeanson <mjeanson@debian.org>
            2011 Stéphane Graber <stephane.graber@canonical.com>
            2012-2016 Jon Bernard <jbernard@debian.org>
 License: GPL-2
