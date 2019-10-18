@@ -1,3 +1,13 @@
+lttng-modules (2.11.0-1) unstable; urgency=medium
+
+  * [79326af] New upstream version 2.11.0
+  * [a732214] Bump debhelper to 11
+  * [b0627db] Set Rules-Requires-Root to no
+  * [3da3e09] Bump standards version to 4.4.1
+  * [1513156] Update d/copyright
+
+ -- Michael Jeanson <mjeanson@debian.org>  Thu, 17 Oct 2019 15:49:22 -0400
+
 lttng-modules (2.10.11-1) unstable; urgency=medium
 
   * [64ea811] New upstream version 2.10.11
