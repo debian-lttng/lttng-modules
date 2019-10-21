@@ -58,6 +58,14 @@ BUILT_MODULE_NAME[$i]="lttng-tracer"
 DEST_MODULE_LOCATION[$i]="/extra"
 i=$((i+1))
 
+if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_NET_9P" ] && \
+   ( [ "$VERSION" -ge 3 -a "$PATCHLEVEL" -ge 10 ] || [ "$VERSION" -ge 4 ] ); then
+   BUILT_MODULE_NAME[$i]="lttng-probe-9p"
+   BUILT_MODULE_LOCATION[$i]="probes/"
+   DEST_MODULE_LOCATION[$i]="/extra/probes"
+   i=$((i+1))
+fi
+
 if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_SND_SOC" ]; then
     BUILT_MODULE_NAME[$i]="lttng-probe-asoc"
     BUILT_MODULE_LOCATION[$i]="probes/"
@@ -239,6 +247,13 @@ if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_KPROBES" ]; then
    i=$((i+1))
 fi
 
+if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_UPROBES" ]; then
+   BUILT_MODULE_NAME[$i]="lttng-uprobes"
+   BUILT_MODULE_LOCATION[$i]="probes/"
+   DEST_MODULE_LOCATION[$i]="/extra/probes"
+   i=$((i+1))
+fi
+
 if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_KRETPROBES" ]; then
    BUILT_MODULE_NAME[$i]="lttng-kretprobes"
    BUILT_MODULE_LOCATION[$i]="probes/"
@@ -257,6 +272,13 @@ fi
 if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_VIDEO_V4L2" ] && \
    ( [ "$VERSION" -ge 3 -a "$PATCHLEVEL" -ge 14 ] || [ "$VERSION" -ge 4 ] ); then
    BUILT_MODULE_NAME[$i]="lttng-probe-v4l2"
+   BUILT_MODULE_LOCATION[$i]="probes/"
+   DEST_MODULE_LOCATION[$i]="/extra/probes"
+   i=$((i+1))
+fi
+
+if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_PREEMPTIRQ_EVENTS" ]; then
+   BUILT_MODULE_NAME[$i]="lttng-probe-preemptirq"
    BUILT_MODULE_LOCATION[$i]="probes/"
    DEST_MODULE_LOCATION[$i]="/extra/probes"
    i=$((i+1))
