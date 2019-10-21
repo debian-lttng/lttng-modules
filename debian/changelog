@@ -1,3 +1,9 @@
+lttng-modules (2.11.0-2) unstable; urgency=medium
+
+  * [a196266] Add new probes to dkms config
+
+ -- Michael Jeanson <mjeanson@debian.org>  Mon, 21 Oct 2019 17:18:34 -0400
+
 lttng-modules (2.11.0-1) unstable; urgency=medium
 
   * [79326af] New upstream version 2.11.0
