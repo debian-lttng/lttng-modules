@@ -1,3 +1,9 @@
+lttng-modules (2.11.0-2~ubuntu16.04.2) xenial; urgency=medium
+
+  * [a2313a3] Relax dependency to debhelper 10
+
+ -- Michael Jeanson <mjeanson@debian.org>  Tue, 22 Oct 2019 11:50:19 -0400
+
 lttng-modules (2.11.0-2~ubuntu16.04.1) xenial; urgency=medium
 
   * Source backport to xenial
