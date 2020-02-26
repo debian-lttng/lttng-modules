@@ -386,7 +386,24 @@ LTTNG_TRACEPOINT_EVENT(rcu_fqs,
  * events use the upper bits of each number, while interrupt-related
  * events use the lower bits.
  */
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0))	\
+	|| LTTNG_KERNEL_RANGE(5,5,6, 5,6,0)		\
+	|| LTTNG_KERNEL_RANGE(5,4,22, 5,5,0)
+LTTNG_TRACEPOINT_EVENT(rcu_dyntick,
+
+	TP_PROTO(const char *polarity, long oldnesting, long newnesting, int dynticks),
+
+	TP_ARGS(polarity, oldnesting, newnesting, dynticks),
+
+	TP_FIELDS(
+		ctf_string(polarity, polarity)
+		ctf_integer(long, oldnesting, oldnesting)
+		ctf_integer(long, newnesting, newnesting)
+		ctf_integer(int, dynticks, dynticks)
+	)
+)
+
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4,16,0))
 LTTNG_TRACEPOINT_EVENT(rcu_dyntick,
 
 	TP_PROTO(const char *polarity, long oldnesting, long newnesting, atomic_t dynticks),
@@ -487,34 +504,68 @@ LTTNG_TRACEPOINT_EVENT(rcu_prep_idle,
  * number of lazy callbacks queued, and the fourth element is the
  * total number of callbacks queued.
  */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0))
 LTTNG_TRACEPOINT_EVENT(rcu_callback,
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,0))
-	TP_PROTO(const char *rcuname, struct rcu_head *rhp, long qlen_lazy,
-		 long qlen),
-
-	TP_ARGS(rcuname, rhp, qlen_lazy, qlen),
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0))
-	TP_PROTO(char *rcuname, struct rcu_head *rhp, long qlen_lazy,
-		 long qlen),
-
-	TP_ARGS(rcuname, rhp, qlen_lazy, qlen),
-#else
-	TP_PROTO(char *rcuname, struct rcu_head *rhp, long qlen),
+	TP_PROTO(const char *rcuname, struct rcu_head *rhp, long qlen),
 
 	TP_ARGS(rcuname, rhp, qlen),
-#endif
 
 	TP_FIELDS(
 		ctf_string(rcuname, rcuname)
 		ctf_integer_hex(void *, rhp, rhp)
 		ctf_integer_hex(void *, func, rhp->func)
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0))
-		ctf_integer(long, qlen_lazy, qlen_lazy)
-#endif
 		ctf_integer(long, qlen, qlen)
 	)
 )
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,0))
+LTTNG_TRACEPOINT_EVENT(rcu_callback,
+
+	TP_PROTO(const char *rcuname, struct rcu_head *rhp, long qlen_lazy,
+		 long qlen),
+
+	TP_ARGS(rcuname, rhp, qlen_lazy, qlen),
+
+	TP_FIELDS(
+		ctf_string(rcuname, rcuname)
+		ctf_integer_hex(void *, rhp, rhp)
+		ctf_integer_hex(void *, func, rhp->func)
+		ctf_integer(long, qlen_lazy, qlen_lazy)
+		ctf_integer(long, qlen, qlen)
+	)
+)
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0))
+LTTNG_TRACEPOINT_EVENT(rcu_callback,
+
+	TP_PROTO(char *rcuname, struct rcu_head *rhp, long qlen_lazy,
+		 long qlen),
+
+	TP_ARGS(rcuname, rhp, qlen_lazy, qlen),
+
+	TP_FIELDS(
+		ctf_string(rcuname, rcuname)
+		ctf_integer_hex(void *, rhp, rhp)
+		ctf_integer_hex(void *, func, rhp->func)
+		ctf_integer(long, qlen_lazy, qlen_lazy)
+		ctf_integer(long, qlen, qlen)
+	)
+)
+#else
+LTTNG_TRACEPOINT_EVENT(rcu_callback,
+
+	TP_PROTO(char *rcuname, struct rcu_head *rhp, long qlen),
+
+	TP_ARGS(rcuname, rhp, qlen),
+
+	TP_FIELDS(
+		ctf_string(rcuname, rcuname)
+		ctf_integer_hex(void *, rhp, rhp)
+		ctf_integer_hex(void *, func, rhp->func)
+		ctf_integer(long, qlen, qlen)
+	)
+)
+#endif
+
 
 /*
  * Tracepoint for the registration of a single RCU callback of the special
@@ -524,36 +575,69 @@ LTTNG_TRACEPOINT_EVENT(rcu_callback,
  * the fourth argument is the number of lazy callbacks queued, and the
  * fifth argument is the total number of callbacks queued.
  */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0))
 LTTNG_TRACEPOINT_EVENT(rcu_kfree_callback,
 
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,0))
 	TP_PROTO(const char *rcuname, struct rcu_head *rhp, unsigned long offset,
-		 long qlen_lazy, long qlen),
-
-	TP_ARGS(rcuname, rhp, offset, qlen_lazy, qlen),
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0))
-	TP_PROTO(char *rcuname, struct rcu_head *rhp, unsigned long offset,
-		 long qlen_lazy, long qlen),
-
-	TP_ARGS(rcuname, rhp, offset, qlen_lazy, qlen),
-#else
-	TP_PROTO(char *rcuname, struct rcu_head *rhp, unsigned long offset,
 		 long qlen),
 
 	TP_ARGS(rcuname, rhp, offset, qlen),
-#endif
 
 	TP_FIELDS(
 		ctf_string(rcuname, rcuname)
 		ctf_integer_hex(void *, rhp, rhp)
 		ctf_integer_hex(unsigned long, offset, offset)
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0))
-		ctf_integer(long, qlen_lazy, qlen_lazy)
-#endif
 		ctf_integer(long, qlen, qlen)
 	)
 )
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,0))
+LTTNG_TRACEPOINT_EVENT(rcu_kfree_callback,
+
+	TP_PROTO(const char *rcuname, struct rcu_head *rhp, unsigned long offset,
+		 long qlen_lazy, long qlen),
+
+	TP_ARGS(rcuname, rhp, offset, qlen_lazy, qlen),
+
+	TP_FIELDS(
+		ctf_string(rcuname, rcuname)
+		ctf_integer_hex(void *, rhp, rhp)
+		ctf_integer_hex(unsigned long, offset, offset)
+		ctf_integer(long, qlen_lazy, qlen_lazy)
+		ctf_integer(long, qlen, qlen)
+	)
+)
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0))
+LTTNG_TRACEPOINT_EVENT(rcu_kfree_callback,
+
+	TP_PROTO(char *rcuname, struct rcu_head *rhp, unsigned long offset,
+		 long qlen_lazy, long qlen),
+
+	TP_ARGS(rcuname, rhp, offset, qlen_lazy, qlen),
+
+	TP_FIELDS(
+		ctf_string(rcuname, rcuname)
+		ctf_integer_hex(void *, rhp, rhp)
+		ctf_integer_hex(unsigned long, offset, offset)
+		ctf_integer(long, qlen_lazy, qlen_lazy)
+		ctf_integer(long, qlen, qlen)
+	)
+)
+#else
+LTTNG_TRACEPOINT_EVENT(rcu_kfree_callback,
+
+	TP_PROTO(char *rcuname, struct rcu_head *rhp, unsigned long offset,
+		 long qlen),
+
+	TP_ARGS(rcuname, rhp, offset, qlen),
+
+	TP_FIELDS(
+		ctf_string(rcuname, rcuname)
+		ctf_integer_hex(void *, rhp, rhp)
+		ctf_integer_hex(unsigned long, offset, offset)
+		ctf_integer(long, qlen, qlen)
+	)
+)
+#endif
 
 /*
  * Tracepoint for marking the beginning rcu_do_batch, performed to start
@@ -562,39 +646,75 @@ LTTNG_TRACEPOINT_EVENT(rcu_kfree_callback,
  * the total number of callbacks queued, and the fourth argument is
  * the current RCU-callback batch limit.
  */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0))
 LTTNG_TRACEPOINT_EVENT(rcu_batch_start,
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,0))
-	TP_PROTO(const char *rcuname, long qlen_lazy, long qlen, long blimit),
-
-	TP_ARGS(rcuname, qlen_lazy, qlen, blimit),
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))
-	TP_PROTO(char *rcuname, long qlen_lazy, long qlen, long blimit),
-
-	TP_ARGS(rcuname, qlen_lazy, qlen, blimit),
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0))
-	TP_PROTO(char *rcuname, long qlen_lazy, long qlen, int blimit),
-
-	TP_ARGS(rcuname, qlen_lazy, qlen, blimit),
-#else
-	TP_PROTO(char *rcuname, long qlen, int blimit),
+	TP_PROTO(const char *rcuname, long qlen, long blimit),
 
 	TP_ARGS(rcuname, qlen, blimit),
-#endif
 
 	TP_FIELDS(
 		ctf_string(rcuname, rcuname)
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0))
-		ctf_integer(long, qlen_lazy, qlen_lazy)
-#endif
 		ctf_integer(long, qlen, qlen)
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))
 		ctf_integer(long, blimit, blimit)
-#else
-		ctf_integer(int, blimit, blimit)
-#endif
 	)
 )
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,0))
+LTTNG_TRACEPOINT_EVENT(rcu_batch_start,
+
+	TP_PROTO(const char *rcuname, long qlen_lazy, long qlen, long blimit),
+
+	TP_ARGS(rcuname, qlen_lazy, qlen, blimit),
+
+	TP_FIELDS(
+		ctf_string(rcuname, rcuname)
+		ctf_integer(long, qlen_lazy, qlen_lazy)
+		ctf_integer(long, qlen, qlen)
+		ctf_integer(long, blimit, blimit)
+	)
+)
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))
+LTTNG_TRACEPOINT_EVENT(rcu_batch_start,
+
+	TP_PROTO(char *rcuname, long qlen_lazy, long qlen, long blimit),
+
+	TP_ARGS(rcuname, qlen_lazy, qlen, blimit),
+
+	TP_FIELDS(
+		ctf_string(rcuname, rcuname)
+		ctf_integer(long, qlen_lazy, qlen_lazy)
+		ctf_integer(long, qlen, qlen)
+		ctf_integer(long, blimit, blimit)
+	)
+)
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0))
+LTTNG_TRACEPOINT_EVENT(rcu_batch_start,
+
+	TP_PROTO(char *rcuname, long qlen_lazy, long qlen, int blimit),
+
+	TP_ARGS(rcuname, qlen_lazy, qlen, blimit),
+
+	TP_FIELDS(
+		ctf_string(rcuname, rcuname)
+		ctf_integer(long, qlen_lazy, qlen_lazy)
+		ctf_integer(long, qlen, qlen)
+		ctf_integer(int, blimit, blimit)
+	)
+)
+#else
+LTTNG_TRACEPOINT_EVENT(rcu_batch_start,
+
+	TP_PROTO(char *rcuname, long qlen, int blimit),
+
+	TP_ARGS(rcuname, qlen, blimit),
+
+	TP_FIELDS(
+		ctf_string(rcuname, rcuname)
+		ctf_integer(long, qlen, qlen)
+		ctf_integer(int, blimit, blimit)
+	)
+)
+#endif
 
 /*
  * Tracepoint for the invocation of a single RCU callback function.
