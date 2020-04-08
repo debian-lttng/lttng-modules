@@ -48,13 +48,25 @@ ifneq ($(KERNELRELEASE),)
                        lttng-context-vpid.o lttng-context-tid.o \
                        lttng-context-vtid.o lttng-context-ppid.o \
                        lttng-context-vppid.o lttng-context-cpu-id.o \
+                       lttng-context-uid.o \
+                       lttng-context-euid.o \
+                       lttng-context-suid.o \
+                       lttng-context-gid.o \
+                       lttng-context-egid.o \
+                       lttng-context-sgid.o \
+                       lttng-context-vuid.o \
+                       lttng-context-veuid.o \
+                       lttng-context-vsuid.o \
+                       lttng-context-vgid.o \
+                       lttng-context-vegid.o \
+                       lttng-context-vsgid.o \
                        lttng-context-interruptible.o \
                        lttng-context-need-reschedule.o \
                        lttng-context-callstack.o lttng-calibrate.o \
                        lttng-context-hostname.o wrapper/random.o \
                        probes/lttng.o wrapper/trace-clock.o \
                        wrapper/page_alloc.o \
-                       lttng-tracker-pid.o \
+                       lttng-tracker-id.o \
                        lttng-filter.o lttng-filter-interpreter.o \
                        lttng-filter-specialize.o \
                        lttng-filter-validator.o \
@@ -66,10 +78,7 @@ ifneq ($(KERNELRELEASE),)
   endif # CONFIG_HAVE_SYSCALL_TRACEPOINTS
 
   ifneq ($(CONFIG_PERF_EVENTS),)
-    lttng-tracer-objs += $(shell \
-      if [ $(VERSION) -ge 3 \
-        -o \( $(VERSION) -eq 2 -a $(PATCHLEVEL) -eq 6 -a $(SUBLEVEL) -ge 33 \) ] ; then \
-        echo "lttng-context-perf-counters.o" ; fi;)
+    lttng-tracer-objs += lttng-context-perf-counters.o
   endif # CONFIG_PERF_EVENTS
 
   ifneq ($(CONFIG_PREEMPT_RT_FULL),)
@@ -85,6 +94,32 @@ ifneq ($(KERNELRELEASE),)
     if [ $(VERSION) -ge 4 \
       -o \( $(VERSION) -eq 3 -a $(PATCHLEVEL) -ge 15 \) ] ; then \
       echo "lttng-tracepoint.o" ; fi;)
+
+  lttng-tracer-objs += lttng-context-cgroup-ns.o
+
+  ifneq ($(CONFIG_IPC_NS),)
+    lttng-tracer-objs += lttng-context-ipc-ns.o
+  endif
+
+  ifneq ($(wildcard $(mnt_ns_dep)),)
+     lttng-tracer-objs += lttng-context-mnt-ns.o
+  endif
+
+  ifneq ($(CONFIG_NET_NS),)
+    lttng-tracer-objs += lttng-context-net-ns.o
+  endif
+
+  ifneq ($(CONFIG_PID_NS),)
+    lttng-tracer-objs += lttng-context-pid-ns.o
+  endif
+
+  ifneq ($(CONFIG_USER_NS),)
+    lttng-tracer-objs += lttng-context-user-ns.o
+  endif
+
+  ifneq ($(CONFIG_UTS_NS),)
+    lttng-tracer-objs += lttng-context-uts-ns.o
+  endif
 
   obj-$(CONFIG_LTTNG) += lttng-statedump.o
   lttng-statedump-objs := lttng-statedump-impl.o wrapper/irqdesc.o \

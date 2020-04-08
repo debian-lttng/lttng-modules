@@ -15,7 +15,7 @@
 #include <linux/kprobes.h>
 #include <linux/kref.h>
 #include <lttng-cpuhotplug.h>
-#include <wrapper/uuid.h>
+#include <linux/uuid.h>
 #include <wrapper/uprobes.h>
 #include <lttng-tracer.h>
 #include <lttng-abi.h>
@@ -315,9 +315,6 @@ struct lttng_event {
 			char *symbol_name;
 		} kretprobe;
 		struct {
-			char *symbol_name;
-		} ftrace;
-		struct {
 			struct inode *inode;
 			struct list_head head;
 		} uprobe;
@@ -489,19 +486,36 @@ struct lttng_dynamic_len_stack {
 DECLARE_PER_CPU(struct lttng_dynamic_len_stack, lttng_dynamic_len_stack);
 
 /*
- * struct lttng_pid_tracker declared in header due to deferencing of *v
+ * struct lttng_id_tracker declared in header due to deferencing of *v
  * in RCU_INITIALIZER(v).
  */
-#define LTTNG_PID_HASH_BITS	6
-#define LTTNG_PID_TABLE_SIZE	(1 << LTTNG_PID_HASH_BITS)
+#define LTTNG_ID_HASH_BITS	6
+#define LTTNG_ID_TABLE_SIZE	(1 << LTTNG_ID_HASH_BITS)
 
-struct lttng_pid_tracker {
-	struct hlist_head pid_hash[LTTNG_PID_TABLE_SIZE];
+enum tracker_type {
+	TRACKER_PID,
+	TRACKER_VPID,
+	TRACKER_UID,
+	TRACKER_VUID,
+	TRACKER_GID,
+	TRACKER_VGID,
+
+	TRACKER_UNKNOWN,
 };
 
-struct lttng_pid_hash_node {
+struct lttng_id_tracker_rcu {
+	struct hlist_head id_hash[LTTNG_ID_TABLE_SIZE];
+};
+
+struct lttng_id_tracker {
+	struct lttng_session *session;
+	enum tracker_type tracker_type;
+	struct lttng_id_tracker_rcu *p;	/* RCU dereferenced. */
+};
+
+struct lttng_id_hash_node {
 	struct hlist_node hlist;
-	int pid;
+	int id;
 };
 
 struct lttng_session {
@@ -514,7 +528,12 @@ struct lttng_session {
 	unsigned int free_chan_id;	/* Next chan ID to allocate */
 	uuid_le uuid;			/* Trace session unique ID */
 	struct lttng_metadata_cache *metadata_cache;
-	struct lttng_pid_tracker *pid_tracker;
+	struct lttng_id_tracker pid_tracker;
+	struct lttng_id_tracker vpid_tracker;
+	struct lttng_id_tracker uid_tracker;
+	struct lttng_id_tracker vuid_tracker;
+	struct lttng_id_tracker gid_tracker;
+	struct lttng_id_tracker vgid_tracker;
 	unsigned int metadata_dumped:1,
 		tstate:1;		/* Transient enable state */
 	/* List of enablers */
@@ -611,17 +630,20 @@ void lttng_probes_exit(void);
 int lttng_metadata_output_channel(struct lttng_metadata_stream *stream,
 		struct channel *chan);
 
-int lttng_pid_tracker_get_node_pid(const struct lttng_pid_hash_node *node);
-struct lttng_pid_tracker *lttng_pid_tracker_create(void);
-void lttng_pid_tracker_destroy(struct lttng_pid_tracker *lpf);
-bool lttng_pid_tracker_lookup(struct lttng_pid_tracker *lpf, int pid);
-int lttng_pid_tracker_add(struct lttng_pid_tracker *lpf, int pid);
-int lttng_pid_tracker_del(struct lttng_pid_tracker *lpf, int pid);
+int lttng_id_tracker_get_node_id(const struct lttng_id_hash_node *node);
+int lttng_id_tracker_empty_set(struct lttng_id_tracker *lf);
+void lttng_id_tracker_destroy(struct lttng_id_tracker *lf, bool rcu);
+bool lttng_id_tracker_lookup(struct lttng_id_tracker_rcu *p, int id);
+int lttng_id_tracker_add(struct lttng_id_tracker *lf, int id);
+int lttng_id_tracker_del(struct lttng_id_tracker *lf, int id);
 
-int lttng_session_track_pid(struct lttng_session *session, int pid);
-int lttng_session_untrack_pid(struct lttng_session *session, int pid);
+int lttng_session_track_id(struct lttng_session *session,
+		enum tracker_type tracker_type, int id);
+int lttng_session_untrack_id(struct lttng_session *session,
+		enum tracker_type tracker_type, int id);
 
-int lttng_session_list_tracker_pids(struct lttng_session *session);
+int lttng_session_list_tracker_ids(struct lttng_session *session,
+		enum tracker_type tracker_type);
 
 void lttng_clock_ref(void);
 void lttng_clock_unref(void);
@@ -718,7 +740,98 @@ int lttng_add_migratable_to_ctx(struct lttng_ctx **ctx)
 
 int lttng_add_callstack_to_ctx(struct lttng_ctx **ctx, int type);
 
-#if defined(CONFIG_PERF_EVENTS) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,33))
+#if defined(CONFIG_CGROUPS) && \
+	((LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0)) || \
+	 LTTNG_UBUNTU_KERNEL_RANGE(4,4,0,0, 4,5,0,0))
+int lttng_add_cgroup_ns_to_ctx(struct lttng_ctx **ctx);
+#else
+static inline
+int lttng_add_cgroup_ns_to_ctx(struct lttng_ctx **ctx)
+{
+	return -ENOSYS;
+}
+#endif
+
+#if defined(CONFIG_IPC_NS) && \
+	(LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0))
+int lttng_add_ipc_ns_to_ctx(struct lttng_ctx **ctx);
+#else
+static inline
+int lttng_add_ipc_ns_to_ctx(struct lttng_ctx **ctx)
+{
+	return -ENOSYS;
+}
+#endif
+
+#if !defined(LTTNG_MNT_NS_MISSING_HEADER) && \
+	(LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0))
+int lttng_add_mnt_ns_to_ctx(struct lttng_ctx **ctx);
+#else
+static inline
+int lttng_add_mnt_ns_to_ctx(struct lttng_ctx **ctx)
+{
+	return -ENOSYS;
+}
+#endif
+
+#if defined(CONFIG_NET_NS) && \
+	(LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0))
+int lttng_add_net_ns_to_ctx(struct lttng_ctx **ctx);
+#else
+static inline
+int lttng_add_net_ns_to_ctx(struct lttng_ctx **ctx)
+{
+	return -ENOSYS;
+}
+#endif
+
+#if defined(CONFIG_PID_NS) && \
+	(LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0))
+int lttng_add_pid_ns_to_ctx(struct lttng_ctx **ctx);
+#else
+static inline
+int lttng_add_pid_ns_to_ctx(struct lttng_ctx **ctx)
+{
+	return -ENOSYS;
+}
+#endif
+
+#if defined(CONFIG_USER_NS) && \
+	(LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0))
+int lttng_add_user_ns_to_ctx(struct lttng_ctx **ctx);
+#else
+static inline
+int lttng_add_user_ns_to_ctx(struct lttng_ctx **ctx)
+{
+	return -ENOSYS;
+}
+#endif
+
+#if defined(CONFIG_UTS_NS) && \
+	(LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0))
+int lttng_add_uts_ns_to_ctx(struct lttng_ctx **ctx);
+#else
+static inline
+int lttng_add_uts_ns_to_ctx(struct lttng_ctx **ctx)
+{
+	return -ENOSYS;
+}
+#endif
+
+int lttng_add_uid_to_ctx(struct lttng_ctx **ctx);
+int lttng_add_euid_to_ctx(struct lttng_ctx **ctx);
+int lttng_add_suid_to_ctx(struct lttng_ctx **ctx);
+int lttng_add_gid_to_ctx(struct lttng_ctx **ctx);
+int lttng_add_egid_to_ctx(struct lttng_ctx **ctx);
+int lttng_add_sgid_to_ctx(struct lttng_ctx **ctx);
+int lttng_add_vuid_to_ctx(struct lttng_ctx **ctx);
+int lttng_add_veuid_to_ctx(struct lttng_ctx **ctx);
+int lttng_add_vsuid_to_ctx(struct lttng_ctx **ctx);
+int lttng_add_vgid_to_ctx(struct lttng_ctx **ctx);
+int lttng_add_vegid_to_ctx(struct lttng_ctx **ctx);
+int lttng_add_vsgid_to_ctx(struct lttng_ctx **ctx);
+
+#if defined(CONFIG_PERF_EVENTS)
 int lttng_add_perf_counter_to_ctx(uint32_t type,
 				  uint64_t config,
 				  const char *name,
@@ -862,39 +975,11 @@ int lttng_kretprobes_event_enable_state(struct lttng_event *event,
 }
 #endif
 
-#if defined(CONFIG_DYNAMIC_FTRACE) && !defined(LTTNG_FTRACE_MISSING_HEADER)
-int lttng_ftrace_register(const char *name,
-			  const char *symbol_name,
-			  struct lttng_event *event);
-void lttng_ftrace_unregister(struct lttng_event *event);
-void lttng_ftrace_destroy_private(struct lttng_event *event);
-#else
-static inline
-int lttng_ftrace_register(const char *name,
-			  const char *symbol_name,
-			  struct lttng_event *event)
-{
-	return -ENOSYS;
-}
-
-static inline
-void lttng_ftrace_unregister(struct lttng_event *event)
-{
-}
-
-static inline
-void lttng_ftrace_destroy_private(struct lttng_event *event)
-{
-}
-#endif
-
 int lttng_calibrate(struct lttng_kernel_calibrate *calibrate);
 
 extern const struct file_operations lttng_tracepoint_list_fops;
 extern const struct file_operations lttng_syscall_list_fops;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35))
 #define TRACEPOINT_HAS_DATA_ARG
-#endif
 
 #endif /* _LTTNG_EVENTS_H */

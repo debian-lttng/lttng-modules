@@ -13,9 +13,9 @@ distribution kernel, with no need for additional patches.
 Other notable features:
 
   - Produces [CTF](http://www.efficios.com/ctf)
-    (Common Trace Format) natively.
+    (Common Trace Format) natively,
   - Tracepoints, function tracer, CPU Performance Monitoring Unit (PMU)
-    counters, kprobes, and kretprobes support.
+    counters, kprobes, and kretprobes support,
   - Have the ability to attach _context_ information to events in the
     trace (e.g., any PMU counter, PID, PPID, TID, command name, etc).
     All the extra information fields to be collected with events are
@@ -58,14 +58,14 @@ Then configure your kernel as usual and enable the `CONFIG_LTTNG` option.
 Make sure your target kernel has the following config options enabled:
 
   - `CONFIG_MODULES`: loadable module support (not strictly required
-     when built into the kernel)
+     when built into the kernel),
   - `CONFIG_KALLSYMS`: see files in [`wrapper`](wrapper); this is
      necessary until the few required missing symbols are exported to GPL
-     modules from mainline
-  - `CONFIG_HIGH_RES_TIMERS`: needed for LTTng 2.x clock source
+     modules from mainline,
+  - `CONFIG_HIGH_RES_TIMERS`: needed for LTTng 2.x clock source,
   - `CONFIG_TRACEPOINTS`: kernel tracepoint instrumentation
      (enabled as a side-effect of any of the perf/ftrace/blktrace
-     instrumentation features)
+     instrumentation features).
 
 
 ### Supported (optional) kernel config options
@@ -94,6 +94,19 @@ available from LTTng:
   - `CONFIG_KALLSYMS_ALL`: state dump of mapping between block device
     number and name
 
+Customization/Extension
+-----------------------
+
+The lttng-modules source includes definitions for the actual callback
+functions that will be attached to the kernel tracepoints by lttng.
+The lttng-modules project implements its own macros generating these
+callbacks: the LTTNG_TRACEPOINT_EVENT macro family found in
+instrumentation/events/lttng-module/. In order to show up in a
+lttng-modules trace, a kernel tracepoint must be defined within the
+kernel tree, and also defined within lttng-modules with the
+LTTNG_TRACEPOINT_EVENT macro family. Customizations or extensions must
+be done by modifying instances of these macros within the lttng-modules
+source.
 
 Usage
 -----
@@ -107,7 +120,7 @@ to print traces as a human-readable text log.
 Support
 -------
 
-Linux kernels >= 2.6.36 are supported.
+Linux kernels >= 3.0 are supported.
 
 
 Notes
