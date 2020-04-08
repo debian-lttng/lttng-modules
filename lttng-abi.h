@@ -17,7 +17,7 @@
  * should be increased when an incompatible ABI change is done.
  */
 #define LTTNG_MODULES_ABI_MAJOR_VERSION		2
-#define LTTNG_MODULES_ABI_MINOR_VERSION		4
+#define LTTNG_MODULES_ABI_MINOR_VERSION		5
 
 #define LTTNG_KERNEL_SYM_NAME_LEN	256
 #define LTTNG_KERNEL_SESSION_NAME_LEN	256
@@ -161,6 +161,25 @@ enum lttng_kernel_context_type {
 	LTTNG_KERNEL_CONTEXT_MIGRATABLE		= 15,
 	LTTNG_KERNEL_CONTEXT_CALLSTACK_KERNEL	= 16,
 	LTTNG_KERNEL_CONTEXT_CALLSTACK_USER	= 17,
+	LTTNG_KERNEL_CONTEXT_CGROUP_NS		= 18,
+	LTTNG_KERNEL_CONTEXT_IPC_NS		= 19,
+	LTTNG_KERNEL_CONTEXT_MNT_NS		= 20,
+	LTTNG_KERNEL_CONTEXT_NET_NS		= 21,
+	LTTNG_KERNEL_CONTEXT_PID_NS		= 22,
+	LTTNG_KERNEL_CONTEXT_USER_NS		= 23,
+	LTTNG_KERNEL_CONTEXT_UTS_NS		= 24,
+	LTTNG_KERNEL_CONTEXT_UID		= 25,
+	LTTNG_KERNEL_CONTEXT_EUID		= 26,
+	LTTNG_KERNEL_CONTEXT_SUID		= 27,
+	LTTNG_KERNEL_CONTEXT_GID		= 28,
+	LTTNG_KERNEL_CONTEXT_EGID		= 29,
+	LTTNG_KERNEL_CONTEXT_SGID		= 30,
+	LTTNG_KERNEL_CONTEXT_VUID		= 31,
+	LTTNG_KERNEL_CONTEXT_VEUID		= 32,
+	LTTNG_KERNEL_CONTEXT_VSUID		= 33,
+	LTTNG_KERNEL_CONTEXT_VGID		= 34,
+	LTTNG_KERNEL_CONTEXT_VEGID		= 35,
+	LTTNG_KERNEL_CONTEXT_VSGID		= 36,
 };
 
 struct lttng_kernel_perf_counter_ctx {
@@ -189,7 +208,24 @@ struct lttng_kernel_filter_bytecode {
 	char data[0];
 } __attribute__((packed));
 
+enum lttng_kernel_tracker_type {
+	LTTNG_KERNEL_TRACKER_UNKNOWN		= -1,
+
+	LTTNG_KERNEL_TRACKER_PID		= 0,
+	LTTNG_KERNEL_TRACKER_VPID		= 1,
+	LTTNG_KERNEL_TRACKER_UID		= 2,
+	LTTNG_KERNEL_TRACKER_VUID		= 3,
+	LTTNG_KERNEL_TRACKER_GID		= 4,
+	LTTNG_KERNEL_TRACKER_VGID		= 5,
+};
+
+struct lttng_kernel_tracker_args {
+	enum lttng_kernel_tracker_type type;
+	int32_t id;
+};
+
 /* LTTng file descriptor ioctl */
+/* lttng-abi-old.h reserve 0x40, 0x41, 0x42, 0x43, and 0x44. */
 #define LTTNG_KERNEL_SESSION			_IO(0xF6, 0x45)
 #define LTTNG_KERNEL_TRACER_VERSION		\
 	_IOR(0xF6, 0x46, struct lttng_kernel_tracer_version)
@@ -202,6 +238,7 @@ struct lttng_kernel_filter_bytecode {
 	_IOR(0xF6, 0x4B, struct lttng_kernel_tracer_abi_version)
 
 /* Session FD ioctl */
+/* lttng-abi-old.h reserve 0x50, 0x51, 0x52, and 0x53. */
 #define LTTNG_KERNEL_METADATA			\
 	_IOW(0xF6, 0x54, struct lttng_kernel_channel)
 #define LTTNG_KERNEL_CHANNEL			\
@@ -212,6 +249,7 @@ struct lttng_kernel_filter_bytecode {
 	_IOR(0xF6, 0x58, int32_t)
 #define LTTNG_KERNEL_SESSION_UNTRACK_PID	\
 	_IOR(0xF6, 0x59, int32_t)
+
 /*
  * ioctl 0x58 and 0x59 are duplicated here. It works, since _IOR vs _IO
  * are generating two different ioctl numbers, but this was not done on
@@ -220,7 +258,7 @@ struct lttng_kernel_filter_bytecode {
 #define LTTNG_KERNEL_SESSION_LIST_TRACKER_PIDS	_IO(0xF6, 0x58)
 #define LTTNG_KERNEL_SESSION_METADATA_REGEN	_IO(0xF6, 0x59)
 
-/* 0x5A and 0x5B are reserved for a future ABI-breaking cleanup. */
+/* lttng-abi-old.h reserve 0x5A and 0x5B. */
 #define LTTNG_KERNEL_SESSION_STATEDUMP		_IO(0xF6, 0x5C)
 #define LTTNG_KERNEL_SESSION_SET_NAME		\
 	_IOR(0xF6, 0x5D, struct lttng_kernel_session_name)
@@ -228,6 +266,7 @@ struct lttng_kernel_filter_bytecode {
 	_IOR(0xF6, 0x5E, struct lttng_kernel_session_creation_time)
 
 /* Channel FD ioctl */
+/* lttng-abi-old.h reserve 0x60 and 0x61. */
 #define LTTNG_KERNEL_STREAM			_IO(0xF6, 0x62)
 #define LTTNG_KERNEL_EVENT			\
 	_IOW(0xF6, 0x63, struct lttng_kernel_event)
@@ -235,16 +274,26 @@ struct lttng_kernel_filter_bytecode {
 	_IOWR(0xF6, 0x64, struct lttng_kernel_syscall_mask)
 
 /* Event and Channel FD ioctl */
+/* lttng-abi-old.h reserve 0x70. */
 #define LTTNG_KERNEL_CONTEXT			\
 	_IOW(0xF6, 0x71, struct lttng_kernel_context)
 
 /* Event, Channel and Session ioctl */
+/* lttng-abi-old.h reserve 0x80 and 0x81. */
 #define LTTNG_KERNEL_ENABLE			_IO(0xF6, 0x82)
 #define LTTNG_KERNEL_DISABLE			_IO(0xF6, 0x83)
 
 /* Event FD ioctl */
 #define LTTNG_KERNEL_FILTER			_IO(0xF6, 0x90)
 #define LTTNG_KERNEL_ADD_CALLSITE		_IO(0xF6, 0x91)
+
+/* Session FD ioctl (continued) */
+#define LTTNG_KERNEL_SESSION_LIST_TRACKER_IDS	\
+	_IOR(0xF6, 0xA0, struct lttng_kernel_tracker_args)
+#define LTTNG_KERNEL_SESSION_TRACK_ID		\
+	_IOR(0xF6, 0xA1, struct lttng_kernel_tracker_args)
+#define LTTNG_KERNEL_SESSION_UNTRACK_ID		\
+	_IOR(0xF6, 0xA2, struct lttng_kernel_tracker_args)
 
 /*
  * LTTng-specific ioctls for the lib ringbuffer.

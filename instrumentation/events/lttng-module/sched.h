@@ -13,12 +13,7 @@
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))
 #include <linux/sched/rt.h>
 #endif
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0))
-#define lttng_proc_inum ns.inum
-#else
-#define lttng_proc_inum proc_inum
-#endif
+#include <wrapper/namespace.h>
 
 #define LTTNG_MAX_PID_NS_LEVEL 32
 
@@ -149,7 +144,7 @@ static inline long __trace_sched_switch_state(struct task_struct *p)
 	return state;
 }
 
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35))
+#else
 
 static inline long __trace_sched_switch_state(struct task_struct *p)
 {
@@ -169,6 +164,40 @@ static inline long __trace_sched_switch_state(struct task_struct *p)
 #endif
 
 #endif /* _TRACE_SCHED_DEF_ */
+
+/*
+ * Enumeration of the task state bitmask.
+ * Only bit flags are enumerated here, not composition of states.
+ */
+LTTNG_TRACEPOINT_ENUM(task_state,
+	TP_ENUM_VALUES(
+		ctf_enum_value("TASK_RUNNING", TASK_RUNNING)
+		ctf_enum_value("TASK_INTERRUPTIBLE", TASK_INTERRUPTIBLE)
+		ctf_enum_value("TASK_UNINTERRUPTIBLE", TASK_UNINTERRUPTIBLE)
+		ctf_enum_value("TASK_STOPPED", __TASK_STOPPED)
+		ctf_enum_value("TASK_TRACED", __TASK_TRACED)
+		ctf_enum_value("EXIT_DEAD", EXIT_DEAD)
+		ctf_enum_value("EXIT_ZOMBIE", EXIT_ZOMBIE)
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))
+		ctf_enum_value("TASK_PARKED", TASK_PARKED)
+#endif /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0)) */
+
+		ctf_enum_value("TASK_DEAD", TASK_DEAD)
+		ctf_enum_value("TASK_WAKEKILL", TASK_WAKEKILL)
+		ctf_enum_value("TASK_WAKING", TASK_WAKING)
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,2,0))
+		ctf_enum_value("TASK_NOLOAD", TASK_NOLOAD)
+#endif /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,2,0)) */
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,8,0))
+		ctf_enum_value("TASK_NEW", TASK_NEW)
+#endif /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,8,0)) */
+
+		ctf_enum_value("TASK_STATE_MAX", TASK_STATE_MAX)
+	)
+)
 
 /*
  * Tracepoint for calling kthread_stop, performed to end a kthread:
@@ -226,24 +255,16 @@ LTTNG_TRACEPOINT_EVENT_CLASS(sched_wakeup_template,
 #else /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,3,0)) */
 LTTNG_TRACEPOINT_EVENT_CLASS(sched_wakeup_template,
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35))
 	TP_PROTO(struct task_struct *p, int success),
 
 	TP_ARGS(p, success),
-#else
-	TP_PROTO(struct rq *rq, struct task_struct *p, int success),
-
-	TP_ARGS(rq, p, success),
-#endif
 
 	TP_FIELDS(
 		ctf_array_text(char, comm, p->comm, TASK_COMM_LEN)
 		ctf_integer(pid_t, tid, p->pid)
 		ctf_integer(int, prio, p->prio - MAX_RT_PRIO)
 		ctf_integer(int, success, success)
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32))
 		ctf_integer(int, target_cpu, task_cpu(p))
-#endif
 	)
 )
 #endif /* #else #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,3,0)) */
@@ -280,7 +301,7 @@ LTTNG_TRACEPOINT_EVENT_INSTANCE(sched_wakeup_template, sched_wakeup_new,
 	     TP_PROTO(struct task_struct *p),
 	     TP_ARGS(p))
 
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35))
+#else
 
 LTTNG_TRACEPOINT_EVENT_INSTANCE(sched_wakeup_template, sched_wakeup,
 	     TP_PROTO(struct task_struct *p, int success),
@@ -293,20 +314,7 @@ LTTNG_TRACEPOINT_EVENT_INSTANCE(sched_wakeup_template, sched_wakeup_new,
 	     TP_PROTO(struct task_struct *p, int success),
 	     TP_ARGS(p, success))
 
-#else /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)) */
-
-LTTNG_TRACEPOINT_EVENT_INSTANCE(sched_wakeup_template, sched_wakeup,
-	     TP_PROTO(struct rq *rq, struct task_struct *p, int success),
-	     TP_ARGS(rq, p, success))
-
-/*
- * Tracepoint for waking up a new task:
- */
-LTTNG_TRACEPOINT_EVENT_INSTANCE(sched_wakeup_template, sched_wakeup_new,
-	     TP_PROTO(struct rq *rq, struct task_struct *p, int success),
-	     TP_ARGS(rq, p, success))
-
-#endif /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)) */
+#endif /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,3,0)) */
 
 /*
  * Tracepoint for task switches, performed by the scheduler:
@@ -319,28 +327,21 @@ LTTNG_TRACEPOINT_EVENT(sched_switch,
 		 struct task_struct *next),
 
 	TP_ARGS(preempt, prev, next),
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35))
+#else
 	TP_PROTO(struct task_struct *prev,
 		 struct task_struct *next),
 
 	TP_ARGS(prev, next),
-#else /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)) */
-	TP_PROTO(struct rq *rq, struct task_struct *prev,
-		 struct task_struct *next),
-
-	TP_ARGS(rq, prev, next),
-#endif /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)) */
+#endif /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,0)) */
 
 	TP_FIELDS(
 		ctf_array_text(char, prev_comm,	prev->comm, TASK_COMM_LEN)
 		ctf_integer(pid_t, prev_tid, prev->pid)
 		ctf_integer(int, prev_prio, prev->prio - MAX_RT_PRIO)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,0))
-		ctf_integer(long, prev_state, __trace_sched_switch_state(preempt, prev))
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35))
-		ctf_integer(long, prev_state, __trace_sched_switch_state(prev))
+		ctf_enum(task_state, long, prev_state, __trace_sched_switch_state(preempt, prev))
 #else
-		ctf_integer(long, prev_state, prev->state)
+		ctf_enum(task_state, long, prev_state, __trace_sched_switch_state(prev))
 #endif
 		ctf_array_text(char, next_comm, next->comm, TASK_COMM_LEN)
 		ctf_integer(pid_t, next_tid, next->pid)
@@ -397,15 +398,9 @@ LTTNG_TRACEPOINT_EVENT_INSTANCE(sched_process_template, sched_process_exit,
 /*
  * Tracepoint for waiting on task to unschedule:
  */
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35))
 LTTNG_TRACEPOINT_EVENT_INSTANCE(sched_process_template, sched_wait_task,
 	TP_PROTO(struct task_struct *p),
 	TP_ARGS(p))
-#else /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)) */
-LTTNG_TRACEPOINT_EVENT_INSTANCE(sched_process_template, sched_wait_task,
-	TP_PROTO(struct rq *rq, struct task_struct *p),
-	TP_ARGS(rq, p))
-#endif /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35)) */
 
 /*
  * Tracepoint for a waiting task:
@@ -471,7 +466,7 @@ LTTNG_TRACEPOINT_EVENT_CODE(sched_process_fork,
 					pid_ns = task_active_pid_ns(parent);
 					if (pid_ns)
 						parent_ns_inum =
-							pid_ns->lttng_proc_inum;
+							pid_ns->lttng_ns_inum;
 				}
 				parent_ns_inum;
 			}))
@@ -491,7 +486,7 @@ LTTNG_TRACEPOINT_EVENT_CODE(sched_process_fork,
 					pid_ns = task_active_pid_ns(child);
 					if (pid_ns)
 						child_ns_inum =
-							pid_ns->lttng_proc_inum;
+							pid_ns->lttng_ns_inum;
 				}
 				child_ns_inum;
 			}))
@@ -500,24 +495,6 @@ LTTNG_TRACEPOINT_EVENT_CODE(sched_process_fork,
 
 	TP_code_post()
 )
-
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33))
-/*
- * Tracepoint for sending a signal:
- */
-LTTNG_TRACEPOINT_EVENT(sched_signal_send,
-
-	TP_PROTO(int sig, struct task_struct *p),
-
-	TP_ARGS(sig, p),
-
-	TP_FIELDS(
-		ctf_integer(int, sig, sig)
-		ctf_array_text(char, comm, p->comm, TASK_COMM_LEN)
-		ctf_integer(pid_t, tid, p->pid)
-	)
-)
-#endif
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0))
 /*
@@ -538,7 +515,6 @@ LTTNG_TRACEPOINT_EVENT(sched_process_exec,
 )
 #endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32))
 /*
  * XXX the below sched_stat tracepoints only apply to SCHED_OTHER/BATCH/IDLE
  *     adding sched_stat support to SCHED_FIFO/RR would be welcome.
@@ -607,7 +583,6 @@ LTTNG_TRACEPOINT_EVENT(sched_stat_runtime,
 		ctf_integer(u64, vruntime, vruntime)
 	)
 )
-#endif
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0) || \
 	LTTNG_RT_KERNEL_RANGE(4,9,27,18, 4,10,0,0) || \
@@ -629,7 +604,7 @@ LTTNG_TRACEPOINT_EVENT(sched_pi_setprio,
 		ctf_integer(int, newprio, pi_task ? pi_task->prio - MAX_RT_PRIO : tsk->prio - MAX_RT_PRIO)
 	)
 )
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37))
+#else
 /*
  * Tracepoint for showing priority inheritance modifying a tasks
  * priority.

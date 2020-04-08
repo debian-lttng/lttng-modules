@@ -154,6 +154,8 @@ extern
 void lib_ring_buffer_switch_remote(struct lib_ring_buffer *buf);
 extern
 void lib_ring_buffer_switch_remote_empty(struct lib_ring_buffer *buf);
+extern
+void lib_ring_buffer_clear(struct lib_ring_buffer *buf);
 
 /* Buffer write helpers */
 
@@ -181,6 +183,33 @@ void lib_ring_buffer_reserve_push_reader(struct lib_ring_buffer *buf,
 			consumed_new = subbuf_align(consumed_old, chan);
 		else
 			return;
+	} while (unlikely(atomic_long_cmpxchg(&buf->consumed, consumed_old,
+					      consumed_new) != consumed_old));
+}
+
+/*
+ * Move consumed position to the beginning of subbuffer in which the
+ * write offset is. Should only be used on ring buffers that are not
+ * actively being written into, because clear_reader does not take into
+ * account the commit counters when moving the consumed position, which
+ * can make concurrent trace producers or consumers observe consumed
+ * position further than the write offset, which breaks ring buffer
+ * algorithm guarantees.
+ */
+static inline
+void lib_ring_buffer_clear_reader(struct lib_ring_buffer *buf,
+				  struct channel *chan)
+{
+	const struct lib_ring_buffer_config *config = &chan->backend.config;
+	unsigned long offset, consumed_old, consumed_new;
+
+	do {
+		offset = v_read(config, &buf->offset);
+		consumed_old = atomic_long_read(&buf->consumed);
+		CHAN_WARN_ON(chan, (long) (subbuf_trunc(offset, chan)
+				- subbuf_trunc(consumed_old, chan))
+				< 0);
+		consumed_new = subbuf_trunc(offset, chan);
 	} while (unlikely(atomic_long_cmpxchg(&buf->consumed, consumed_old,
 					      consumed_new) != consumed_old));
 }
