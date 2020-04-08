@@ -68,7 +68,6 @@ License: LGPL-2.1
 Files: probes/lttng-events-nowrite.h
   probes/lttng-events-reset.h
   probes/lttng-events-write.h
-  probes/lttng-ftrace.c
   probes/lttng-kprobes.c
   probes/lttng-kretprobes.c
   probes/lttng-probe-block.c
@@ -104,11 +103,6 @@ Files: wrapper/kref.h
   wrapper/list.h
 Copyright: 2015-2016 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
 License: GPL-2
-
-Files: wrapper/kstrtox.h
-  wrapper/vzalloc.h
-Copyright: 2015 Michael Jeanson <mjeanson@efficios.com>
-License: LGPL-2.1
 
 Files: wrapper/ringbuffer/*
 Copyright: 2005-2015 Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
