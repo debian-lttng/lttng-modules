@@ -20,9 +20,47 @@
 
 #include <linux/kallsyms.h>
 #include <wrapper/kallsyms.h>
+#include <lttng-kernel-version.h>
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0) \
+  || LTTNG_KERNEL_RANGE(5,5,12, 5,6,0)            \
+  || LTTNG_KERNEL_RANGE(5,4,28, 5,5,0)            \
+  || LTTNG_KERNEL_RANGE(5,2,37, 5,3,0)            \
+  || LTTNG_KERNEL_RANGE(4,19,113, 4,20,0)         \
+  || LTTNG_KERNEL_RANGE(4,14,175, 4,15,0)         \
+  || LTTNG_KERNEL_RANGE(4,9,218, 4,10,0)          \
+  || LTTNG_KERNEL_RANGE(4,4,218, 4,5,0))	  \
+  || LTTNG_UBUNTU_KERNEL_RANGE(4,15,18,97, 4,16,0,0) \
+  || LTTNG_UBUNTU_KERNEL_RANGE(5,0,21,48, 5,1,0,0)   \
+  || LTTNG_UBUNTU_KERNEL_RANGE(5,3,18,52, 5,4,0,0)
 
 static inline
-void wrapper_vmalloc_sync_all(void)
+void wrapper_vmalloc_sync_mappings(void)
+{
+	void (*vmalloc_sync_mappings_sym)(void);
+
+	vmalloc_sync_mappings_sym = (void *) kallsyms_lookup_funcptr("vmalloc_sync_mappings");
+	if (vmalloc_sync_mappings_sym) {
+		vmalloc_sync_mappings_sym();
+	} else {
+#ifdef CONFIG_X86
+		/*
+		 * Only x86 needs vmalloc_sync_mappings to make sure LTTng does not
+		 * trigger recursive page faults.
+		 */
+		printk_once(KERN_WARNING "LTTng: vmalloc_sync_mappings symbol lookup failed.\n");
+		printk_once(KERN_WARNING "Page fault handler and NMI tracing might trigger faults.\n");
+#endif
+	}
+}
+
+#else /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)) */
+
+/*
+ * Map vmalloc_sync_mappings to vmalloc_sync_all() on kernels before 5.7.
+ */
+static inline
+void wrapper_vmalloc_sync_mappings(void)
 {
 	void (*vmalloc_sync_all_sym)(void);
 
@@ -40,13 +78,39 @@ void wrapper_vmalloc_sync_all(void)
 #endif
 	}
 }
+
+#endif /* #else #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)) */
+
 #else
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0) \
+  || LTTNG_KERNEL_RANGE(5,5,12, 5,6,0)            \
+  || LTTNG_KERNEL_RANGE(5,4,28, 5,5,0)            \
+  || LTTNG_KERNEL_RANGE(5,2,37, 5,3,0)            \
+  || LTTNG_KERNEL_RANGE(4,19,113, 4,20,0)         \
+  || LTTNG_KERNEL_RANGE(4,14,175, 4,15,0)         \
+  || LTTNG_KERNEL_RANGE(4,9,218, 4,10,0)          \
+  || LTTNG_KERNEL_RANGE(4,4,218, 4,5,0))	  \
+  || LTTNG_UBUNTU_KERNEL_RANGE(4,15,18,97, 4,18,0,0) \
+  || LTTNG_UBUNTU_KERNEL_RANGE(5,0,21,48, 5,1,0,0)   \
+  || LTTNG_UBUNTU_KERNEL_RANGE(5,3,18,52, 5,4,0,0)
+
 static inline
-void wrapper_vmalloc_sync_all(void)
+void wrapper_vmalloc_sync_mappings(void)
+{
+	return vmalloc_sync_mappings();
+}
+
+#else /* #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)) */
+
+static inline
+void wrapper_vmalloc_sync_mappings(void)
 {
 	return vmalloc_sync_all();
 }
+
+#endif /* #else #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0)) */
+
 #endif
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0))
@@ -61,7 +125,7 @@ void *lttng_kvmalloc_node(unsigned long size, gfp_t flags, int node)
 		 * Make sure we don't trigger recursive page faults in the
 		 * tracing fast path.
 		 */
-		wrapper_vmalloc_sync_all();
+		wrapper_vmalloc_sync_mappings();
 	}
 	return ret;
 }
@@ -173,7 +237,7 @@ void *lttng_kvmalloc_node(unsigned long size, gfp_t flags, int node)
 		 * Make sure we don't trigger recursive page faults in the
 		 * tracing fast path.
 		 */
-		wrapper_vmalloc_sync_all();
+		wrapper_vmalloc_sync_mappings();
 	}
 	return ret;
 }
