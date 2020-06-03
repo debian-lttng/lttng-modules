@@ -58,6 +58,10 @@ BUILT_MODULE_NAME[$i]="lttng-tracer"
 DEST_MODULE_LOCATION[$i]="/extra"
 i=$((i+1))
 
+BUILT_MODULE_NAME[$i]="lttng-wrapper"
+DEST_MODULE_LOCATION[$i]="/extra"
+i=$((i+1))
+
 if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_NET_9P" ] && \
    ( [ "$VERSION" -ge 3 -a "$PATCHLEVEL" -ge 10 ] || [ "$VERSION" -ge 4 ] ); then
    BUILT_MODULE_NAME[$i]="lttng-probe-9p"
