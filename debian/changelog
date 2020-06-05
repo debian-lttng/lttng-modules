@@ -1,3 +1,9 @@
+lttng-modules (2.12.1-1~ubuntu20.04.1) focal; urgency=medium
+
+  * Source backport to focal
+
+ -- Michael Jeanson <mjeanson@debian.org>  Fri, 05 Jun 2020 14:13:24 -0400
+
 lttng-modules (2.12.1-1) unstable; urgency=medium
 
   * [d5516c1] New upstream version 2.12.1
