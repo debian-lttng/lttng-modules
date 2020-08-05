@@ -1,3 +1,10 @@
+lttng-modules (2.12.2-1~ubuntu20.04.1) focal; urgency=medium
+
+  * [7fed285] remove salsa-ci.yml
+  * [5de8762] New upstream version 2.12.2
+
+ -- Michael Jeanson <mjeanson@debian.org>  Wed, 05 Aug 2020 14:47:30 -0400
+
 lttng-modules (2.12.1-1~ubuntu20.04.1) focal; urgency=medium
 
   * Source backport to focal
