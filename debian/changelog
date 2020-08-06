@@ -1,3 +1,9 @@
+lttng-modules (2.12.2-1~ubuntu16.04.1) xenial; urgency=medium
+
+  * [5de8762] New upstream version 2.12.2
+
+ -- Michael Jeanson <mjeanson@debian.org>  Thu, 06 Aug 2020 18:21:38 -0400
+
 lttng-modules (2.12.1-1~ubuntu16.04.2) xenial; urgency=medium
 
   * [8029326] Fixes for xenial
