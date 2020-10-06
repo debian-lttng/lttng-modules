@@ -460,6 +460,21 @@ LTTNG_TRACEPOINT_EVENT(ext4_mb_release_group_pa,
 )
 #endif
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0) || \
+	LTTNG_KERNEL_RANGE(5,8,6, 5,9,0))
+LTTNG_TRACEPOINT_EVENT(ext4_discard_preallocations,
+	TP_PROTO(struct inode *inode, unsigned int len, unsigned int needed),
+
+	TP_ARGS(inode, len, needed),
+
+	TP_FIELDS(
+		ctf_integer(dev_t, dev, inode->i_sb->s_dev)
+		ctf_integer(ino_t, ino, inode->i_ino)
+		ctf_integer(unsigned int, len, len)
+		ctf_integer(unsigned int, needed, needed)
+	)
+)
+#else
 LTTNG_TRACEPOINT_EVENT(ext4_discard_preallocations,
 	TP_PROTO(struct inode *inode),
 
@@ -470,6 +485,7 @@ LTTNG_TRACEPOINT_EVENT(ext4_discard_preallocations,
 		ctf_integer(ino_t, ino, inode->i_ino)
 	)
 )
+#endif
 
 LTTNG_TRACEPOINT_EVENT(ext4_mb_discard_preallocations,
 	TP_PROTO(struct super_block *sb, int needed),
@@ -878,12 +894,26 @@ LTTNG_TRACEPOINT_EVENT_INSTANCE(ext4__bitmap_load, ext4_mb_buddy_bitmap_load,
 	TP_ARGS(sb, group)
 )
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,9,0))
+LTTNG_TRACEPOINT_EVENT(ext4_read_block_bitmap_load,
+	TP_PROTO(struct super_block *sb, unsigned long group, bool prefetch),
+
+	TP_ARGS(sb, group, prefetch),
+
+	TP_FIELDS(
+		ctf_integer(dev_t, dev, sb->s_dev)
+		ctf_integer(__u32, group, group)
+		ctf_integer(bool, prefetch, prefetch)
+	)
+)
+#else
 LTTNG_TRACEPOINT_EVENT_INSTANCE(ext4__bitmap_load, ext4_read_block_bitmap_load,
 
 	TP_PROTO(struct super_block *sb, unsigned long group),
 
 	TP_ARGS(sb, group)
 )
+#endif
 
 LTTNG_TRACEPOINT_EVENT_INSTANCE(ext4__bitmap_load, ext4_load_inode_bitmap,
 
