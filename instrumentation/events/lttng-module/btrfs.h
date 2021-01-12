@@ -346,7 +346,29 @@ LTTNG_TRACEPOINT_EVENT(btrfs_handle_em_exist,
 )
 #endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0))
+LTTNG_TRACEPOINT_EVENT_CLASS(btrfs__ordered_extent,
+
+	TP_PROTO(const struct btrfs_inode *inode,
+		 const struct btrfs_ordered_extent *ordered),
+
+	TP_ARGS(inode, ordered),
+
+	TP_FIELDS(
+		ctf_array(u8, fsid, inode->root->lttng_fs_info_fsid, BTRFS_UUID_SIZE)
+		ctf_integer(ino_t, ino, btrfs_ino(inode))
+		ctf_integer(u64, file_offset, ordered->file_offset)
+		ctf_integer(u64, start, ordered->disk_bytenr)
+		ctf_integer(u64, len, ordered->num_bytes)
+		ctf_integer(u64, disk_len, ordered->disk_num_bytes)
+		ctf_integer(u64, bytes_left, ordered->bytes_left)
+		ctf_integer(unsigned long, flags, ordered->flags)
+		ctf_integer(int, compress_type, ordered->compress_type)
+		ctf_integer(int, refs, refcount_read(&ordered->refs))
+		ctf_integer(u64, root_objectid, inode->root->root_key.objectid)
+	)
+)
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0))
 LTTNG_TRACEPOINT_EVENT_CLASS(btrfs__ordered_extent,
 
 	TP_PROTO(const struct inode *inode,
@@ -458,7 +480,39 @@ LTTNG_TRACEPOINT_EVENT_CLASS(btrfs__ordered_extent,
 )
 #endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0) || \
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0))
+LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__ordered_extent, btrfs_ordered_extent_add,
+
+	TP_PROTO(const struct btrfs_inode *inode,
+		 const struct btrfs_ordered_extent *ordered),
+
+	TP_ARGS(inode, ordered)
+)
+
+LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__ordered_extent, btrfs_ordered_extent_remove,
+
+	TP_PROTO(const struct btrfs_inode *inode,
+		 const struct btrfs_ordered_extent *ordered),
+
+	TP_ARGS(inode, ordered)
+)
+
+LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__ordered_extent, btrfs_ordered_extent_start,
+
+	TP_PROTO(const struct btrfs_inode *inode,
+		 const struct btrfs_ordered_extent *ordered),
+
+	TP_ARGS(inode, ordered)
+)
+
+LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__ordered_extent, btrfs_ordered_extent_put,
+
+	TP_PROTO(const struct btrfs_inode *inode,
+		 const struct btrfs_ordered_extent *ordered),
+
+	TP_ARGS(inode, ordered)
+)
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0) || \
 	LTTNG_SLE_KERNEL_RANGE(4,4,73,5,0,0, 4,4,73,6,0,0) || \
 	LTTNG_SLE_KERNEL_RANGE(4,4,82,6,0,0, 4,4,82,7,0,0) || \
 	LTTNG_SLE_KERNEL_RANGE(4,4,92,6,0,0, 4,4,92,7,0,0) || \
@@ -494,7 +548,41 @@ LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__ordered_extent, btrfs_ordered_extent_put,
 
 	TP_ARGS(inode, ordered)
 )
+#else
+LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__ordered_extent, btrfs_ordered_extent_add,
 
+	TP_PROTO(struct inode *inode, struct btrfs_ordered_extent *ordered),
+
+	TP_ARGS(inode, ordered)
+)
+
+LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__ordered_extent, btrfs_ordered_extent_remove,
+
+	TP_PROTO(struct inode *inode, struct btrfs_ordered_extent *ordered),
+
+	TP_ARGS(inode, ordered)
+)
+
+LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__ordered_extent, btrfs_ordered_extent_start,
+
+	TP_PROTO(struct inode *inode, struct btrfs_ordered_extent *ordered),
+
+	TP_ARGS(inode, ordered)
+)
+
+LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__ordered_extent, btrfs_ordered_extent_put,
+
+	TP_PROTO(struct inode *inode, struct btrfs_ordered_extent *ordered),
+
+	TP_ARGS(inode, ordered)
+)
+#endif
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0) || \
+	LTTNG_SLE_KERNEL_RANGE(4,4,73,5,0,0, 4,4,73,6,0,0) || \
+	LTTNG_SLE_KERNEL_RANGE(4,4,82,6,0,0, 4,4,82,7,0,0) || \
+	LTTNG_SLE_KERNEL_RANGE(4,4,92,6,0,0, 4,4,92,7,0,0) || \
+	LTTNG_SLE_KERNEL_RANGE(4,4,103,6,0,0, 4,5,0,0,0,0))
 LTTNG_TRACEPOINT_EVENT_CLASS(btrfs__writepage,
 
 	TP_PROTO(const struct page *page, const struct inode *inode,
@@ -563,34 +651,6 @@ LTTNG_TRACEPOINT_EVENT(btrfs_sync_file,
 	)
 )
 #else
-LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__ordered_extent, btrfs_ordered_extent_add,
-
-	TP_PROTO(struct inode *inode, struct btrfs_ordered_extent *ordered),
-
-	TP_ARGS(inode, ordered)
-)
-
-LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__ordered_extent, btrfs_ordered_extent_remove,
-
-	TP_PROTO(struct inode *inode, struct btrfs_ordered_extent *ordered),
-
-	TP_ARGS(inode, ordered)
-)
-
-LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__ordered_extent, btrfs_ordered_extent_start,
-
-	TP_PROTO(struct inode *inode, struct btrfs_ordered_extent *ordered),
-
-	TP_ARGS(inode, ordered)
-)
-
-LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__ordered_extent, btrfs_ordered_extent_put,
-
-	TP_PROTO(struct inode *inode, struct btrfs_ordered_extent *ordered),
-
-	TP_ARGS(inode, ordered)
-)
-
 LTTNG_TRACEPOINT_EVENT_CLASS(btrfs__writepage,
 
 	TP_PROTO(struct page *page, struct inode *inode,
@@ -1856,7 +1916,29 @@ LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__reserved_extent,  btrfs_reserved_extent_f
 
 #endif /* #else #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)) */
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,5,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0) || \
+	LTTNG_KERNEL_RANGE(5,9,5, 5,10,0) || \
+	LTTNG_KERNEL_RANGE(5,4,78, 5,5,0))
+LTTNG_TRACEPOINT_EVENT_MAP(find_free_extent,
+
+	btrfs_find_free_extent,
+
+	TP_PROTO(const struct btrfs_root *root, u64 num_bytes, u64 empty_size,
+		 u64 data),
+
+	TP_ARGS(root, num_bytes, empty_size, data),
+
+	TP_FIELDS(
+		ctf_array(u8, fsid, root->lttng_fs_info_fsid, BTRFS_UUID_SIZE)
+		ctf_integer(u64, root_objectid, root->root_key.objectid)
+		ctf_integer(u64, num_bytes, num_bytes)
+		ctf_integer(u64, empty_size, empty_size)
+		ctf_integer(u64, data, data)
+	)
+)
+
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(5,5,0))
+
 LTTNG_TRACEPOINT_EVENT_MAP(find_free_extent,
 
 	btrfs_find_free_extent,
@@ -1874,6 +1956,105 @@ LTTNG_TRACEPOINT_EVENT_MAP(find_free_extent,
 	)
 )
 
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4,18,0))
+
+LTTNG_TRACEPOINT_EVENT_MAP(find_free_extent,
+
+	btrfs_find_free_extent,
+
+	TP_PROTO(const struct btrfs_fs_info *fs_info, u64 num_bytes, u64 empty_size,
+		 u64 data),
+
+	TP_ARGS(fs_info, num_bytes, empty_size, data),
+
+	TP_FIELDS(
+		ctf_array(u8, fsid, lttng_fs_info_fsid, BTRFS_UUID_SIZE)
+		ctf_integer(u64, num_bytes, num_bytes)
+		ctf_integer(u64, empty_size, empty_size)
+		ctf_integer(u64, data, data)
+	)
+)
+
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0))
+
+LTTNG_TRACEPOINT_EVENT_MAP(find_free_extent,
+
+	btrfs_find_free_extent,
+
+	TP_PROTO(const struct btrfs_fs_info *fs_info, u64 num_bytes, u64 empty_size,
+		 u64 data),
+
+	TP_ARGS(fs_info, num_bytes, empty_size, data),
+
+	TP_FIELDS(
+		ctf_array(u8, fsid, lttng_fs_info_fsid, BTRFS_UUID_SIZE)
+		ctf_integer(u64, num_bytes, num_bytes)
+		ctf_integer(u64, empty_size, empty_size)
+		ctf_integer(u64, data, data)
+	)
+)
+
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0))
+
+LTTNG_TRACEPOINT_EVENT_MAP(find_free_extent,
+
+	btrfs_find_free_extent,
+
+	TP_PROTO(struct btrfs_fs_info *fs_info, u64 num_bytes, u64 empty_size,
+		 u64 data),
+
+	TP_ARGS(fs_info, num_bytes, empty_size, data),
+
+	TP_FIELDS(
+		ctf_array(u8, fsid, lttng_fs_info_fsid, BTRFS_UUID_SIZE)
+		ctf_integer(u64, num_bytes, num_bytes)
+		ctf_integer(u64, empty_size, empty_size)
+		ctf_integer(u64, data, data)
+	)
+)
+
+#elif (LTTNG_SLE_KERNEL_RANGE(4,4,73,5,0,0, 4,4,73,6,0,0) || \
+	LTTNG_SLE_KERNEL_RANGE(4,4,82,6,0,0, 4,4,82,7,0,0) || \
+	LTTNG_SLE_KERNEL_RANGE(4,4,92,6,0,0, 4,4,92,7,0,0) || \
+	LTTNG_SLE_KERNEL_RANGE(4,4,103,6,0,0, 4,5,0,0,0,0))
+
+LTTNG_TRACEPOINT_EVENT_MAP(find_free_extent,
+
+	btrfs_find_free_extent,
+
+	TP_PROTO(const struct btrfs_root *root, u64 num_bytes, u64 empty_size,
+		 u64 data),
+
+	TP_ARGS(root, num_bytes, empty_size, data),
+
+	TP_FIELDS(
+		ctf_integer(u64, root_objectid, root->root_key.objectid)
+		ctf_integer(u64, num_bytes, num_bytes)
+		ctf_integer(u64, empty_size, empty_size)
+		ctf_integer(u64, data, data)
+	)
+)
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0))
+
+LTTNG_TRACEPOINT_EVENT_MAP(find_free_extent,
+
+	btrfs_find_free_extent,
+
+	TP_PROTO(struct btrfs_root *root, u64 num_bytes, u64 empty_size,
+		 u64 data),
+
+	TP_ARGS(root, num_bytes, empty_size, data),
+
+	TP_FIELDS(
+		ctf_integer(u64, root_objectid, root->root_key.objectid)
+		ctf_integer(u64, num_bytes, num_bytes)
+		ctf_integer(u64, empty_size, empty_size)
+		ctf_integer(u64, data, data)
+	)
+)
+#endif
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,5,0))
 LTTNG_TRACEPOINT_EVENT_CLASS(btrfs__reserve_extent,
 
 	TP_PROTO(const struct btrfs_block_group *block_group, u64 start,
@@ -1907,22 +2088,6 @@ LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__reserve_extent, btrfs_reserve_extent_clus
 )
 
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4,18,0))
-LTTNG_TRACEPOINT_EVENT_MAP(find_free_extent,
-
-	btrfs_find_free_extent,
-
-	TP_PROTO(const struct btrfs_fs_info *fs_info, u64 num_bytes, u64 empty_size,
-		 u64 data),
-
-	TP_ARGS(fs_info, num_bytes, empty_size, data),
-
-	TP_FIELDS(
-		ctf_array(u8, fsid, lttng_fs_info_fsid, BTRFS_UUID_SIZE)
-		ctf_integer(u64, num_bytes, num_bytes)
-		ctf_integer(u64, empty_size, empty_size)
-		ctf_integer(u64, data, data)
-	)
-)
 
 LTTNG_TRACEPOINT_EVENT_CLASS(btrfs__reserve_extent,
 
@@ -1957,22 +2122,6 @@ LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__reserve_extent, btrfs_reserve_extent_clus
 )
 
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,0))
-LTTNG_TRACEPOINT_EVENT_MAP(find_free_extent,
-
-	btrfs_find_free_extent,
-
-	TP_PROTO(const struct btrfs_fs_info *fs_info, u64 num_bytes, u64 empty_size,
-		 u64 data),
-
-	TP_ARGS(fs_info, num_bytes, empty_size, data),
-
-	TP_FIELDS(
-		ctf_array(u8, fsid, lttng_fs_info_fsid, BTRFS_UUID_SIZE)
-		ctf_integer(u64, num_bytes, num_bytes)
-		ctf_integer(u64, empty_size, empty_size)
-		ctf_integer(u64, data, data)
-	)
-)
 
 LTTNG_TRACEPOINT_EVENT_CLASS(btrfs__reserve_extent,
 
@@ -2010,23 +2159,6 @@ LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__reserve_extent, btrfs_reserve_extent_clus
 )
 
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0))
-
-LTTNG_TRACEPOINT_EVENT_MAP(find_free_extent,
-
-	btrfs_find_free_extent,
-
-	TP_PROTO(struct btrfs_fs_info *fs_info, u64 num_bytes, u64 empty_size,
-		 u64 data),
-
-	TP_ARGS(fs_info, num_bytes, empty_size, data),
-
-	TP_FIELDS(
-		ctf_array(u8, fsid, lttng_fs_info_fsid, BTRFS_UUID_SIZE)
-		ctf_integer(u64, num_bytes, num_bytes)
-		ctf_integer(u64, empty_size, empty_size)
-		ctf_integer(u64, data, data)
-	)
-)
 
 LTTNG_TRACEPOINT_EVENT_CLASS(btrfs__reserve_extent,
 
@@ -2066,23 +2198,6 @@ LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__reserve_extent, btrfs_reserve_extent_clus
 	LTTNG_SLE_KERNEL_RANGE(4,4,92,6,0,0, 4,4,92,7,0,0) || \
 	LTTNG_SLE_KERNEL_RANGE(4,4,103,6,0,0, 4,5,0,0,0,0))
 
-LTTNG_TRACEPOINT_EVENT_MAP(find_free_extent,
-
-	btrfs_find_free_extent,
-
-	TP_PROTO(const struct btrfs_root *root, u64 num_bytes, u64 empty_size,
-		 u64 data),
-
-	TP_ARGS(root, num_bytes, empty_size, data),
-
-	TP_FIELDS(
-		ctf_integer(u64, root_objectid, root->root_key.objectid)
-		ctf_integer(u64, num_bytes, num_bytes)
-		ctf_integer(u64, empty_size, empty_size)
-		ctf_integer(u64, data, data)
-	)
-)
-
 LTTNG_TRACEPOINT_EVENT_CLASS(btrfs__reserve_extent,
 
 	TP_PROTO(const struct btrfs_root *root,
@@ -2119,23 +2234,6 @@ LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__reserve_extent, btrfs_reserve_extent_clus
 )
 
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0))
-
-LTTNG_TRACEPOINT_EVENT_MAP(find_free_extent,
-
-	btrfs_find_free_extent,
-
-	TP_PROTO(struct btrfs_root *root, u64 num_bytes, u64 empty_size,
-		 u64 data),
-
-	TP_ARGS(root, num_bytes, empty_size, data),
-
-	TP_FIELDS(
-		ctf_integer(u64, root_objectid, root->root_key.objectid)
-		ctf_integer(u64, num_bytes, num_bytes)
-		ctf_integer(u64, empty_size, empty_size)
-		ctf_integer(u64, data, data)
-	)
-)
 
 LTTNG_TRACEPOINT_EVENT_CLASS(btrfs__reserve_extent,
 
