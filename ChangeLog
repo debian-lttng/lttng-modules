@@ -1,3 +1,40 @@
+2021-01-11 (National Clean Off Your Desk Day) LTTng modules 2.12.4
+	* fix: adjust version range for trace_find_free_extent()
+	* Improve the release script
+	* Add release maintainer script
+	* fix: statedump: undefined symbols caused by incorrect patch backport
+	* fix: include order for older kernels
+	* fix: tracepoint: Optimize using static_call() (v5.10)
+	* fix: KVM: x86/mmu: Return unique RET_PF_* values if the fault was fixed (v5.10)
+	* fix: kvm: x86/mmu: Add TDP MMU PF handler (v5.10)
+	* fix: KVM: x86: Add intr/vectoring info and error code to kvm_exit tracepoint (v5.10)
+	* fix: ext4: fast commit recovery path (v5.10)
+	* fix: btrfs: make ordered extent tracepoint take btrfs_inode (v5.10)
+	* fix: btrfs: tracepoints: output proper root owner for trace_find_free_extent() (v5.10)
+	* fix: objtool: Rename frame.h -> objtool.h (v5.10)
+	* Fix: ressource leak in id tracker
+	* fix: strncpy equals destination size warning
+
+2020-10-05 (National Get Funky Day) LTTng modules 2.12.3
+	* Cleanup: lttng-syscalls: silence warning about uninitialized bitmap variable
+	* fix: backport 'Add 'kernel_read' wrapper for kernels < v4.14'
+	* Add 'kernel_read' wrapper for kernels < v4.14
+	* fix: Use 'kernel_read' to read from procfs
+	* fix: don't allow userspace copy to read kernel memory
+	* fix: Add a 1MB limit to lttng_strlen_user_inatomic
+	* fix: Adjust ranges for Ubuntu 4.15.0-119 kernel
+	* fix: Adjust ranges for Ubuntu HWE 5.0 kernels
+	* Fix: system call filter table
+	* fix: version ranges for ext4_discard_preallocations and writeback_queue_io
+	* fix: writeback: Fix sync livelock due to b_dirty_time processing (v5.9)
+	* fix: writeback: Drop I_DIRTY_TIME_EXPIRE (v5.9)
+	* fix: removal of [smp_]read_barrier_depends (v5.9)
+	* fix: ext4: indicate via a block bitmap read is prefetched… (v5.9)
+	* fix: ext4: limit the length of per-inode prealloc list (v5.9)
+	* fix: KVM: x86/mmu: Make kvm_mmu_page definition and accessor internal-only (v5.9)
+	* fix: Move mmutrace.h into the mmu/ sub-directory (v5.9)
+	* Kconfig: fix dependency issue when building in-tree without CONFIG_FTRACE
+
 2020-08-04 (National Chocolate Chip Cookie Day) LTTng modules 2.12.2
 	* Fix: Lock metadata cache on session destroy
 	* Fix: metadata stream leak, missing list removal and locking
