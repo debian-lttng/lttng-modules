@@ -1,3 +1,53 @@
+2020-04-08 (The Day After National Beer Day) LTTng modules 2.10.15
+	* fix: uaccess wrapper for CentOS >= 4.18.0-147
+	* fix: ext4 instrumentation for CentOS >= 4.18.0-147
+	* fix: signal instrumentation for CentOS >= 4.18.0-147
+	* fix: kvm instrumentation for CentOS >= 4.18.0-147
+	* fix: rcu instrumentation for CentOS >= 4.18.0-80
+	* Fix: update kvm instrumentation for Ubuntu 5.3.0-45
+	* Fix: update kvm instrumentation for Ubuntu 5.3.0-43
+	* Fix: update kvm instrumentation for Ubuntu 4.15.0-92
+	* Remove lttng-ftrace integration
+	* Remove dependency on kallsyms for splice_to_pipe (kernel 4.2+)
+	* Remove dependency on kallsyms for irq_to_desc (kernel 3.4+)
+	* Remove work-around for signed tracepoint module tainting (kernel 3.15+)
+
+2020-02-25 (National Chocolate Covered Nut Day) LTTng modules 2.10.14
+	* Fix: rcu: Fix data-race due to atomic_t copy-by-value (5.5.6, 5.4.22)
+	* fix: workqueue: add worker function to workqueue_execute_end tracepoint (v5.6)
+	* fix: media: v4l2: abstract timeval handling in v4l2_buffer (v5.6)
+	* fix: rcu: Remove kfree_rcu() special casing and lazy-callback (v5.6)
+	* fix: rcu: Fix data-race due to atomic_t copy-by-value (v5.6)
+	* fix: btrfs: make btrfs_ordered_extent naming consistent (v5.6)
+	* fix: KVM: x86: Use gpa_t for cr2/gpa to fix TDP support on 32-bit (v5.6)
+	* fix: proc: decouple proc from VFS with "struct proc_ops" (v5.6)
+	* fix: y2038: hide timeval/timespec/itimerval/itimerspec types (v5.6)
+	* fix: use timespec64 on kernels that have it
+	* fix: move lttng_close_on_exec to proper wrapper
+	* fix: 'struct timex' removed upstream (v5.6)
+	* Fix: statedump: check task_active_pid_ns return value for NULL
+	* Fix: lttng-syscalls.c: marking wrong syscall probe as unregistered
+
+2020-01-29 (National Puzzle Day) LTTng modules 2.10.13
+	* fix: function prototype in wrapper/mm.h
+	* sunrpc: introduce lttng_get_clid helper
+	* Fix: sunrpc: use signed integer for client id
+	* Fix: sunrpc: null rpc_clnt dereference in rpc_task_queued tracepoint
+	* Fix: SUNRPC: Fix oops when trace sunrpc_task events in nfs client
+	* fix: missing 'lttng_fs_info_fsid' wrapper in btrfs backport
+	* fix: ext4: Reserve revoke credits for freed blocks (v5.5)
+	* fix: btrfs: tracepoints: constify all pointers (v5.5)
+	* Fix: btrfs: use fs_info for btrfs_handle_em_exist tracepoint
+	* Add btrfs tracepoint for em's EEXIST case
+	* fix: btrfs block group struct refactor (v5.5)
+	* fix: y2038: itimer: change implementation to timespec64 (v5.5)
+	* Update .gitignore from upstream
+
+2019-10-17 (Wear Something Gaudy Day) LTTng modules 2.10.12
+	* Fix: btrfs: move basic block_group definitions to their own header (v5.4)
+	* Cleanup: Silence gcc fall-through warning
+	* Fix: update sched prev_state instrumentation for upstream kernel
+
 2019-09-07 (Walter White's Anniversary) LTTng modules 2.10.11
 	* Fix: gcc-9.1 stack frame size warning
 	* Fix: do not use diagnostic pragma when GCC version is lower than 4.6.0
