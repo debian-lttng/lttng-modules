@@ -261,14 +261,6 @@ if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_KRETPROBES" ]; then
    i=$((i+1))
 fi
 
-if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_DYNAMIC_FTRACE" ] && \
-   ( [ "$VERSION" -eq 4 -a "$PATCHLEVEL" -lt 12 ] || [ "$VERSION" -lt 4 ] ); then
-   BUILT_MODULE_NAME[$i]="lttng-ftrace"
-   BUILT_MODULE_LOCATION[$i]="probes/"
-   DEST_MODULE_LOCATION[$i]="/extra/probes"
-   i=$((i+1))
-fi
-
 if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_VIDEO_V4L2" ] && \
    ( [ "$VERSION" -ge 3 -a "$PATCHLEVEL" -ge 14 ] || [ "$VERSION" -ge 4 ] ); then
    BUILT_MODULE_NAME[$i]="lttng-probe-v4l2"
