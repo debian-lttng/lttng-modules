@@ -1,0 +1,198 @@
+From 9d209ed112e998bf21c5df6d013635367b886ba2 Mon Sep 17 00:00:00 2001
+From: Michael Jeanson <mjeanson@efficios.com>
+Date: Fri, 25 Sep 2020 16:05:00 -0400
+Subject: [PATCH] fix: don't allow userspace copy to read kernel memory
+
+This patch fixes a security issue which allows the root user to read
+arbitrary kernel memory. Considering the security model used in LTTng
+userspace tooling for kernel tracing, this bug also allows members of
+the 'tracing' group to read arbitrary kernel memory.
+
+Calls to __copy_from_user_inatomic() where wrongly enclosed in
+set_fs(KERNEL_DS) defeating the access_ok() calls and allowing to read
+from kernel memory if a kernel address is provided.
+
+Remove all set_fs() calls around __copy_from_user_inatomic().
+
+As a side effect this will allow us to support v5.10 which should remove
+set_fs().
+
+Signed-off-by: Michael Jeanson <mjeanson@efficios.com>
+Signed-off-by: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+Change-Id: I35e4562c835217352c012ed96a7b8f93e941381e
+---
+ lib/ringbuffer/backend.h   | 12 ------------
+ lttng-filter-interpreter.c | 16 ++++------------
+ probes/lttng-probe-user.c  |  4 ----
+ 3 files changed, 4 insertions(+), 28 deletions(-)
+
+diff --git a/lib/ringbuffer/backend.h b/lib/ringbuffer/backend.h
+index 3f8c1081..a1a532eb 100644
+--- a/lib/ringbuffer/backend.h
++++ b/lib/ringbuffer/backend.h
+@@ -290,7 +290,6 @@ void lib_ring_buffer_copy_from_user_inatomic(const struct lib_ring_buffer_config
+ 	size_t offset = ctx->buf_offset;
+ 	struct lib_ring_buffer_backend_pages *backend_pages;
+ 	unsigned long ret;
+-	mm_segment_t old_fs = get_fs();
+ 
+ 	if (unlikely(!len))
+ 		return;
+@@ -300,7 +299,6 @@ void lib_ring_buffer_copy_from_user_inatomic(const struct lib_ring_buffer_config
+ 	index = (offset & (chanb->subbuf_size - 1)) >> PAGE_SHIFT;
+ 	pagecpy = min_t(size_t, len, (-offset) & ~PAGE_MASK);
+ 
+-	set_fs(KERNEL_DS);
+ 	pagefault_disable();
+ 	if (unlikely(!lttng_access_ok(VERIFY_READ, src, len)))
+ 		goto fill_buffer;
+@@ -317,14 +315,12 @@ void lib_ring_buffer_copy_from_user_inatomic(const struct lib_ring_buffer_config
+ 		_lib_ring_buffer_copy_from_user_inatomic(bufb, offset, src, len, 0);
+ 	}
+ 	pagefault_enable();
+-	set_fs(old_fs);
+ 	ctx->buf_offset += len;
+ 
+ 	return;
+ 
+ fill_buffer:
+ 	pagefault_enable();
+-	set_fs(old_fs);
+ 	/*
+ 	 * In the error path we call the slow path version to avoid
+ 	 * the pollution of static inline code.
+@@ -360,7 +356,6 @@ void lib_ring_buffer_strcpy_from_user_inatomic(const struct lib_ring_buffer_conf
+ 	size_t index, pagecpy;
+ 	size_t offset = ctx->buf_offset;
+ 	struct lib_ring_buffer_backend_pages *backend_pages;
+-	mm_segment_t old_fs = get_fs();
+ 
+ 	if (unlikely(!len))
+ 		return;
+@@ -370,7 +365,6 @@ void lib_ring_buffer_strcpy_from_user_inatomic(const struct lib_ring_buffer_conf
+ 	index = (offset & (chanb->subbuf_size - 1)) >> PAGE_SHIFT;
+ 	pagecpy = min_t(size_t, len, (-offset) & ~PAGE_MASK);
+ 
+-	set_fs(KERNEL_DS);
+ 	pagefault_disable();
+ 	if (unlikely(!lttng_access_ok(VERIFY_READ, src, len)))
+ 		goto fill_buffer;
+@@ -401,14 +395,12 @@ void lib_ring_buffer_strcpy_from_user_inatomic(const struct lib_ring_buffer_conf
+ 					len, 0, pad);
+ 	}
+ 	pagefault_enable();
+-	set_fs(old_fs);
+ 	ctx->buf_offset += len;
+ 
+ 	return;
+ 
+ fill_buffer:
+ 	pagefault_enable();
+-	set_fs(old_fs);
+ 	/*
+ 	 * In the error path we call the slow path version to avoid
+ 	 * the pollution of static inline code.
+@@ -460,16 +452,12 @@ unsigned long lib_ring_buffer_copy_from_user_check_nofault(void *dest,
+ 						unsigned long len)
+ {
+ 	unsigned long ret;
+-	mm_segment_t old_fs;
+ 
+ 	if (!lttng_access_ok(VERIFY_READ, src, len))
+ 		return 1;
+-	old_fs = get_fs();
+-	set_fs(KERNEL_DS);
+ 	pagefault_disable();
+ 	ret = __copy_from_user_inatomic(dest, src, len);
+ 	pagefault_enable();
+-	set_fs(old_fs);
+ 	return ret;
+ }
+ 
+diff --git a/lttng-filter-interpreter.c b/lttng-filter-interpreter.c
+index bee29187..174f2b80 100644
+--- a/lttng-filter-interpreter.c
++++ b/lttng-filter-interpreter.c
+@@ -97,16 +97,14 @@ static
+ int stack_star_glob_match(struct estack *stack, int top, const char *cmp_type)
+ {
+ 	bool has_user = false;
+-	mm_segment_t old_fs;
+ 	int result;
+ 	struct estack_entry *pattern_reg;
+ 	struct estack_entry *candidate_reg;
+ 
++	/* Disable the page fault handler when reading from userspace. */
+ 	if (estack_bx(stack, top)->u.s.user
+ 			|| estack_ax(stack, top)->u.s.user) {
+ 		has_user = true;
+-		old_fs = get_fs();
+-		set_fs(KERNEL_DS);
+ 		pagefault_disable();
+ 	}
+ 
+@@ -122,10 +120,8 @@ int stack_star_glob_match(struct estack *stack, int top, const char *cmp_type)
+ 	/* Perform the match operation. */
+ 	result = !strutils_star_glob_match_char_cb(get_char_at_cb,
+ 		pattern_reg, get_char_at_cb, candidate_reg);
+-	if (has_user) {
++	if (has_user)
+ 		pagefault_enable();
+-		set_fs(old_fs);
+-	}
+ 
+ 	return result;
+ }
+@@ -135,13 +131,10 @@ int stack_strcmp(struct estack *stack, int top, const char *cmp_type)
+ {
+ 	size_t offset_bx = 0, offset_ax = 0;
+ 	int diff, has_user = 0;
+-	mm_segment_t old_fs;
+ 
+ 	if (estack_bx(stack, top)->u.s.user
+ 			|| estack_ax(stack, top)->u.s.user) {
+ 		has_user = 1;
+-		old_fs = get_fs();
+-		set_fs(KERNEL_DS);
+ 		pagefault_disable();
+ 	}
+ 
+@@ -226,10 +219,9 @@ int stack_strcmp(struct estack *stack, int top, const char *cmp_type)
+ 		offset_bx++;
+ 		offset_ax++;
+ 	}
+-	if (has_user) {
++	if (has_user)
+ 		pagefault_enable();
+-		set_fs(old_fs);
+-	}
++
+ 	return diff;
+ }
+ 
+diff --git a/probes/lttng-probe-user.c b/probes/lttng-probe-user.c
+index ed566ddb..8de5ed50 100644
+--- a/probes/lttng-probe-user.c
++++ b/probes/lttng-probe-user.c
+@@ -32,13 +32,10 @@
+ long lttng_strlen_user_inatomic(const char *addr)
+ {
+ 	long count = 0;
+-	mm_segment_t old_fs;
+ 
+ 	if (!addr)
+ 		return 0;
+ 
+-	old_fs = get_fs();
+-	set_fs(KERNEL_DS);
+ 	pagefault_disable();
+ 	for (;;) {
+ 		char v;
+@@ -59,7 +56,6 @@ long lttng_strlen_user_inatomic(const char *addr)
+ 		addr++;
+ 	}
+ 	pagefault_enable();
+-	set_fs(old_fs);
+ 	return count;
+ }
+ EXPORT_SYMBOL_GPL(lttng_strlen_user_inatomic);

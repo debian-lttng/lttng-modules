@@ -1,0 +1,39 @@
+From c9b7e9c8cee5e9ee5f8a9288bb77d2b52deed077 Mon Sep 17 00:00:00 2001
+From: Michael Jeanson <mjeanson@efficios.com>
+Date: Wed, 16 Sep 2020 15:16:17 -0400
+Subject: [PATCH] fix: Adjust ranges for Ubuntu HWE 5.0 kernels
+
+Signed-off-by: Michael Jeanson <mjeanson@efficios.com>
+Signed-off-by: Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
+Change-Id: I475663967df6e7851728c28b7ff8cad3cd99ed04
+---
+ instrumentation/events/lttng-module/arch/x86/kvm/mmutrace.h | 1 +
+ instrumentation/events/lttng-module/rcu.h                   | 3 ++-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/instrumentation/events/lttng-module/arch/x86/kvm/mmutrace.h b/instrumentation/events/lttng-module/arch/x86/kvm/mmutrace.h
+index 9b73d859..e0fcae37 100644
+--- a/instrumentation/events/lttng-module/arch/x86/kvm/mmutrace.h
++++ b/instrumentation/events/lttng-module/arch/x86/kvm/mmutrace.h
+@@ -219,6 +219,7 @@ LTTNG_TRACEPOINT_EVENT_MAP(
+ 	LTTNG_KERNEL_RANGE(5,4,19, 5,5,0) || \
+ 	LTTNG_KERNEL_RANGE(5,5,3, 5,6,0) || \
+ 	LTTNG_UBUNTU_KERNEL_RANGE(4,15,18,92, 4,16,0,0) || \
++	LTTNG_UBUNTU_KERNEL_RANGE(5,0,21,44, 5,1,0,0) || \
+ 	LTTNG_UBUNTU_KERNEL_RANGE(5,3,18,43, 5,3,18,45) || \
+ 	LTTNG_UBUNTU_KERNEL_RANGE(5,3,18,46, 5,4,0,0))
+ LTTNG_TRACEPOINT_EVENT_MAP(
+diff --git a/instrumentation/events/lttng-module/rcu.h b/instrumentation/events/lttng-module/rcu.h
+index e89c4894..06eafe5e 100644
+--- a/instrumentation/events/lttng-module/rcu.h
++++ b/instrumentation/events/lttng-module/rcu.h
+@@ -393,7 +393,8 @@ LTTNG_TRACEPOINT_EVENT(rcu_fqs,
+  */
+ #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0))	\
+ 	|| LTTNG_KERNEL_RANGE(5,5,6, 5,6,0)		\
+-	|| LTTNG_KERNEL_RANGE(5,4,22, 5,5,0)
++	|| LTTNG_KERNEL_RANGE(5,4,22, 5,5,0)		\
++	|| LTTNG_UBUNTU_KERNEL_RANGE(5,0,21,46, 5,1,0,0)
+ LTTNG_TRACEPOINT_EVENT(rcu_dyntick,
+ 
+ 	TP_PROTO(const char *polarity, long oldnesting, long newnesting, int dynticks),
