@@ -1,3 +1,15 @@
+lttng-modules (2.10.15-1~ubuntu18.04.2) bionic; urgency=medium
+
+  * [79de563] New upstream version 2.10.11
+  * [0ba385b] Update changelog for 2.10.11-1~ubuntu18.04.1 release
+  * [57b5820] d/watch: track stable-2.10
+  * [3a4e66b] d/gpb.conf: use upstream/stable-2.10 branch
+  * [3fb5d8c] dkms: ftrace probe removed upstream
+  * [0f17390] New upstream version 2.10.15
+  * [1f2a5ed] Add upstream patches
+
+ -- Michael Jeanson <mjeanson@debian.org>  Wed, 03 Feb 2021 13:42:02 -0500
+
 lttng-modules (2.10.11-1~ubuntu18.04.1) bionic; urgency=medium
 
   * [64ea811] New upstream version 2.10.11
