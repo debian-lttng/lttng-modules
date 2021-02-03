@@ -8,7 +8,7 @@
  */
 
 #include <linux/module.h>
-#include <linux/tracepoint.h>
+#include <wrapper/tracepoint.h>
 #include <linux/uaccess.h>
 #include <linux/gfp.h>
 #include <linux/fs.h>
@@ -32,7 +32,10 @@
 #define LTTNG_LOGGER_COUNT_MAX	1024
 #define LTTNG_LOGGER_FILE	"lttng-logger"
 
-DEFINE_TRACE(lttng_logger);
+LTTNG_DEFINE_TRACE(lttng_logger,
+	PARAMS(const char __user *text, size_t len),
+	PARAMS(text, len)
+);
 
 static struct proc_dir_entry *lttng_logger_dentry;
 
@@ -116,7 +119,7 @@ int __init lttng_logger_init(void)
 {
 	int ret = 0;
 
-	wrapper_vmalloc_sync_all();
+	wrapper_vmalloc_sync_mappings();
 
 	/* /dev/lttng-logger */
 	ret = misc_register(&logger_dev);
