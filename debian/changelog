@@ -1,3 +1,9 @@
+lttng-modules (2.11.7-1~ubuntu18.04.3) bionic; urgency=medium
+
+  * [e87c71d] Add lttng-wrapper.ko to dkms config
+
+ -- Michael Jeanson <mjeanson@debian.org>  Wed, 03 Feb 2021 14:32:12 -0500
+
 lttng-modules (2.11.7-1~ubuntu18.04.2) bionic; urgency=medium
 
   * [950f9ff] d/watch: track stable-2.11
