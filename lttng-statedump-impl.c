@@ -55,13 +55,42 @@
 #define LTTNG_INSTRUMENTATION
 #include <instrumentation/events/lttng-module/lttng-statedump.h>
 
-DEFINE_TRACE(lttng_statedump_block_device);
-DEFINE_TRACE(lttng_statedump_end);
-DEFINE_TRACE(lttng_statedump_interrupt);
-DEFINE_TRACE(lttng_statedump_file_descriptor);
-DEFINE_TRACE(lttng_statedump_start);
-DEFINE_TRACE(lttng_statedump_process_state);
-DEFINE_TRACE(lttng_statedump_network_interface);
+LTTNG_DEFINE_TRACE(lttng_statedump_block_device,
+	TP_PROTO(struct lttng_session *session,
+		dev_t dev, const char *diskname),
+	TP_ARGS(session, dev, diskname));
+
+LTTNG_DEFINE_TRACE(lttng_statedump_end,
+	TP_PROTO(struct lttng_session *session),
+	TP_ARGS(session));
+
+LTTNG_DEFINE_TRACE(lttng_statedump_interrupt,
+	TP_PROTO(struct lttng_session *session,
+		unsigned int irq, const char *chip_name,
+		struct irqaction *action),
+	TP_ARGS(session, irq, chip_name, action));
+
+LTTNG_DEFINE_TRACE(lttng_statedump_file_descriptor,
+	TP_PROTO(struct lttng_session *session,
+		struct task_struct *p, int fd, const char *filename,
+		unsigned int flags, fmode_t fmode),
+	TP_ARGS(session, p, fd, filename, flags, fmode));
+
+LTTNG_DEFINE_TRACE(lttng_statedump_start,
+	TP_PROTO(struct lttng_session *session),
+	TP_ARGS(session));
+
+LTTNG_DEFINE_TRACE(lttng_statedump_process_state,
+	TP_PROTO(struct lttng_session *session,
+		struct task_struct *p,
+		int type, int mode, int submode, int status,
+		struct pid_namespace *pid_ns),
+	TP_ARGS(session, p, type, mode, submode, status, pid_ns));
+
+LTTNG_DEFINE_TRACE(lttng_statedump_network_interface,
+	TP_PROTO(struct lttng_session *session,
+		struct net_device *dev, struct in_ifaddr *ifa),
+	TP_ARGS(session, dev, ifa));
 
 struct lttng_fd_ctx {
 	char *page;
@@ -138,10 +167,19 @@ int lttng_enumerate_block_devices(struct lttng_session *session)
 
 		disk_part_iter_init(&piter, disk, DISK_PITER_INCL_PART0);
 		while ((part = disk_part_iter_next(&piter))) {
+			struct block_device bdev;
 			char name_buf[BDEVNAME_SIZE];
-			char *p;
+			const char *p;
 
-			p = wrapper_disk_name(disk, part->partno, name_buf);
+			/*
+			 * Create a partial 'struct blockdevice' to use
+			 * 'bdevname()' which is a simple wrapper over
+			 * 'disk_name()' but has the honor to be EXPORT_SYMBOL.
+			 */
+			bdev.bd_disk = disk;
+			bdev.bd_part = part;
+
+			p = bdevname(&bdev, name_buf);
 			if (!p) {
 				disk_part_iter_exit(&piter);
 				class_dev_iter_exit(&iter);
