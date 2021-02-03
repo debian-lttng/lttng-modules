@@ -13,7 +13,8 @@
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM kvm_mmu
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,1,0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,1,0) || \
+	LTTNG_RHEL_KERNEL_RANGE(4,18,0,147,0,0, 4,19,0,0,0,0))
 
 #define LTTNG_KVM_MMU_PAGE_FIELDS \
 	ctf_integer(__u64, gfn, (sp)->gfn) \
@@ -213,6 +214,33 @@ LTTNG_TRACEPOINT_EVENT_MAP(
 	)
 )
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,6,0) || \
+	LTTNG_KERNEL_RANGE(4,19,103, 4,20,0) || \
+	LTTNG_KERNEL_RANGE(5,4,19, 5,5,0) || \
+	LTTNG_KERNEL_RANGE(5,5,3, 5,6,0) || \
+	LTTNG_UBUNTU_KERNEL_RANGE(4,15,18,92, 4,16,0,0) || \
+	LTTNG_UBUNTU_KERNEL_RANGE(5,3,18,43, 5,3,18,45) || \
+	LTTNG_UBUNTU_KERNEL_RANGE(5,3,18,46, 5,4,0,0))
+LTTNG_TRACEPOINT_EVENT_MAP(
+	fast_page_fault,
+
+	kvm_mmu_fast_page_fault,
+
+	TP_PROTO(struct kvm_vcpu *vcpu, gpa_t cr2_or_gpa, u32 error_code,
+		 u64 *sptep, u64 old_spte, bool retry),
+	TP_ARGS(vcpu, cr2_or_gpa, error_code, sptep, old_spte, retry),
+
+	TP_FIELDS(
+		ctf_integer(int, vcpu_id, vcpu->vcpu_id)
+		ctf_integer(gpa_t, cr2_or_gpa, cr2_or_gpa)
+		ctf_integer(u32, error_code, error_code)
+		ctf_integer_hex(u64 *, sptep, sptep)
+		ctf_integer(u64, old_spte, old_spte)
+		ctf_integer(u64, new_spte, *sptep)
+		ctf_integer(bool, retry, retry)
+	)
+)
+#else
 LTTNG_TRACEPOINT_EVENT_MAP(
 	fast_page_fault,
 
@@ -232,6 +260,8 @@ LTTNG_TRACEPOINT_EVENT_MAP(
 		ctf_integer(bool, retry, retry)
 	)
 )
+#endif
+
 #endif /* LTTNG_TRACE_KVM_MMU_H */
 
 #undef TRACE_INCLUDE_PATH
