@@ -2,9 +2,9 @@ Fix build of sched instrumentation on linux-rt >= 4.9.27-rt8
 
 --- a/instrumentation/events/lttng-module/sched.h
 +++ b/instrumentation/events/lttng-module/sched.h
-@@ -554,7 +554,8 @@
+@@ -586,7 +586,8 @@
  
- #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0) || \
+ #if (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(4,12,0) || \
  	LTTNG_RT_KERNEL_RANGE(4,9,27,18, 4,10,0,0) || \
 -	LTTNG_RT_KERNEL_RANGE(4,11,5,1, 4,12,0,0))
 +	LTTNG_RT_KERNEL_RANGE(4,11,5,1, 4,12,0,0) || \
