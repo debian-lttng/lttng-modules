@@ -9,7 +9,7 @@
 #define _LTTNG_WRAPPER_COMPILER_H
 
 #include <linux/compiler.h>
-#include <linux/version.h>
+#include <lttng-kernel-version.h>
 
 /*
  * Don't allow compiling with buggy compiler.
@@ -25,6 +25,16 @@
 #   error Your gcc version produces clobbered frame accesses
 #  endif
 # endif
+
+/*
+ * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=63293
+ */
+# ifdef __aarch64__
+#  if GCC_VERSION < 50100
+#   error Your gcc version performs unsafe access to deallocated stack
+#  endif
+# endif
+
 #endif
 
 /*
@@ -46,7 +56,7 @@
  * and remove calls to smp_read_barrier_depends which was dropped
  * in v5.9.
  */
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0))
+#if (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(4,15,0))
 #define LTTNG_READ_ONCE(x)	READ_ONCE(x)
 #else
 #define LTTNG_READ_ONCE(x)			\
