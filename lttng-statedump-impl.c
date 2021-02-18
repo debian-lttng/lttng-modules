@@ -94,7 +94,7 @@ LTTNG_DEFINE_TRACE(lttng_statedump_process_pid_ns,
 		struct pid_namespace *pid_ns),
 	TP_ARGS(session, p, pid_ns));
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
+#if (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(4,6,0))
 LTTNG_DEFINE_TRACE(lttng_statedump_process_cgroup_ns,
 	TP_PROTO(struct lttng_session *session,
 		struct task_struct *p,
@@ -188,6 +188,61 @@ enum lttng_process_status {
 	LTTNG_DEAD = 7,
 };
 
+
+#if (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(5,11,0))
+
+#define LTTNG_PART_STRUCT_TYPE struct block_device
+
+static
+int lttng_get_part_name(struct gendisk *disk, struct block_device *part, char *name_buf)
+{
+	const char *p;
+
+	p = bdevname(part, name_buf);
+	if (!p)
+		return -ENOSYS;
+
+	return 0;
+}
+
+static
+dev_t lttng_get_part_devt(struct block_device *part)
+{
+	return part->bd_dev;
+}
+
+#else
+
+#define LTTNG_PART_STRUCT_TYPE struct hd_struct
+
+static
+int lttng_get_part_name(struct gendisk *disk, struct hd_struct *part, char *name_buf)
+{
+	const char *p;
+	struct block_device bdev;
+
+	/*
+	 * Create a partial 'struct blockdevice' to use
+	 * 'bdevname()' which is a simple wrapper over
+	 * 'disk_name()' but has the honor to be EXPORT_SYMBOL.
+	 */
+	bdev.bd_disk = disk;
+	bdev.bd_part = part;
+
+	p = bdevname(&bdev, name_buf);
+	if (!p)
+		return -ENOSYS;
+
+	return 0;
+}
+
+static
+dev_t lttng_get_part_devt(struct hd_struct *part)
+{
+	return part_devt(part);
+}
+#endif
+
 static
 int lttng_enumerate_block_devices(struct lttng_session *session)
 {
@@ -207,7 +262,7 @@ int lttng_enumerate_block_devices(struct lttng_session *session)
 	while ((dev = class_dev_iter_next(&iter))) {
 		struct disk_part_iter piter;
 		struct gendisk *disk = dev_to_disk(dev);
-		struct hd_struct *part;
+		LTTNG_PART_STRUCT_TYPE *part;
 
 		/*
 		 * Don't show empty devices or things that have been
@@ -219,26 +274,15 @@ int lttng_enumerate_block_devices(struct lttng_session *session)
 
 		disk_part_iter_init(&piter, disk, DISK_PITER_INCL_PART0);
 		while ((part = disk_part_iter_next(&piter))) {
-			struct block_device bdev;
 			char name_buf[BDEVNAME_SIZE];
-			const char *p;
 
-			/*
-			 * Create a partial 'struct blockdevice' to use
-			 * 'bdevname()' which is a simple wrapper over
-			 * 'disk_name()' but has the honor to be EXPORT_SYMBOL.
-			 */
-			bdev.bd_disk = disk;
-			bdev.bd_part = part;
-
-			p = bdevname(&bdev, name_buf);
-			if (!p) {
+			if (lttng_get_part_name(disk, part, name_buf) == -ENOSYS) {
 				disk_part_iter_exit(&piter);
 				class_dev_iter_exit(&iter);
 				return -ENOSYS;
 			}
 			trace_lttng_statedump_block_device(session,
-					part_devt(part), name_buf);
+					lttng_get_part_devt(part), name_buf);
 		}
 		disk_part_iter_exit(&piter);
 	}
@@ -502,7 +546,7 @@ void lttng_statedump_process_ns(struct lttng_session *session,
 	 * "namespaces: Use task_lock and not rcu to protect nsproxy"
 	 * for details.
 	 */
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0) || \
+#if (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(3,17,0) || \
 		LTTNG_UBUNTU_KERNEL_RANGE(3,13,11,36, 3,14,0,0) || \
 		LTTNG_UBUNTU_KERNEL_RANGE(3,16,1,11, 3,17,0,0) || \
 		LTTNG_RHEL_KERNEL_RANGE(3,10,0,229,13,0, 3,11,0,0,0,0))
@@ -512,7 +556,7 @@ void lttng_statedump_process_ns(struct lttng_session *session,
 	proxy = task_nsproxy(p);
 #endif
 	if (proxy) {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0))
+#if (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(4,6,0))
 		trace_lttng_statedump_process_cgroup_ns(session, p, proxy->cgroup_ns);
 #endif
 		trace_lttng_statedump_process_ipc_ns(session, p, proxy->ipc_ns);
@@ -522,7 +566,7 @@ void lttng_statedump_process_ns(struct lttng_session *session,
 		trace_lttng_statedump_process_net_ns(session, p, proxy->net_ns);
 		trace_lttng_statedump_process_uts_ns(session, p, proxy->uts_ns);
 	}
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,17,0) || \
+#if (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(3,17,0) || \
 		LTTNG_UBUNTU_KERNEL_RANGE(3,13,11,36, 3,14,0,0) || \
 		LTTNG_UBUNTU_KERNEL_RANGE(3,16,1,11, 3,17,0,0) || \
 		LTTNG_RHEL_KERNEL_RANGE(3,10,0,229,13,0, 3,11,0,0,0,0))
