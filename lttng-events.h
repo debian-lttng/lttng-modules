@@ -22,7 +22,7 @@
 #include <lttng-abi.h>
 #include <lttng-abi-old.h>
 
-#define lttng_is_signed_type(type)	(((type)(-1)) < 0)
+#define lttng_is_signed_type(type)	(((type) -1) < (type) 1)
 
 struct lttng_channel;
 struct lttng_session;
@@ -716,6 +716,7 @@ int lttng_enabler_attach_bytecode(struct lttng_enabler *enabler,
 		struct lttng_kernel_filter_bytecode __user *bytecode);
 void lttng_enabler_event_link_bytecode(struct lttng_event *event,
 		struct lttng_enabler *enabler);
+void lttng_free_event_filter_runtime(struct lttng_event *event);
 
 int lttng_probes_init(void);
 
