@@ -243,6 +243,61 @@ dev_t lttng_get_part_devt(struct hd_struct *part)
 }
 #endif
 
+#if (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(5,12,0))
+static
+int lttng_statedump_each_block_device(struct lttng_session *session, struct gendisk *disk)
+{
+	struct block_device *part;
+	unsigned long idx;
+	int ret = 0;
+
+	/* Include partition 0 */
+	idx = 0;
+
+	rcu_read_lock();
+	xa_for_each(&disk->part_tbl, idx, part) {
+		char name_buf[BDEVNAME_SIZE];
+
+		/* Exclude non-partitions bdev and empty partitions. */
+		if (bdev_is_partition(part) && !bdev_nr_sectors(part))
+			continue;
+
+		if (lttng_get_part_name(disk, part, name_buf) == -ENOSYS) {
+			ret = -ENOSYS;
+			goto end;
+		}
+		trace_lttng_statedump_block_device(session, lttng_get_part_devt(part),
+				name_buf);
+	}
+end:
+	rcu_read_unlock();
+	return ret;
+}
+#else
+static
+int lttng_statedump_each_block_device(struct lttng_session *session, struct gendisk *disk)
+{
+	struct disk_part_iter piter;
+	LTTNG_PART_STRUCT_TYPE *part;
+
+	disk_part_iter_init(&piter, disk, DISK_PITER_INCL_PART0);
+
+	while ((part = disk_part_iter_next(&piter))) {
+		char name_buf[BDEVNAME_SIZE];
+
+		if (lttng_get_part_name(disk, part, name_buf) == -ENOSYS) {
+			disk_part_iter_exit(&piter);
+			return -ENOSYS;
+		}
+		trace_lttng_statedump_block_device(session, lttng_get_part_devt(part),
+				name_buf);
+	}
+	disk_part_iter_exit(&piter);
+
+	return 0;
+}
+#endif
+
 static
 int lttng_enumerate_block_devices(struct lttng_session *session)
 {
@@ -250,19 +305,21 @@ int lttng_enumerate_block_devices(struct lttng_session *session)
 	struct device_type *ptr_disk_type;
 	struct class_dev_iter iter;
 	struct device *dev;
+	int ret = 0;
 
 	ptr_block_class = wrapper_get_block_class();
-	if (!ptr_block_class)
-		return -ENOSYS;
+	if (!ptr_block_class) {
+		ret = -ENOSYS;
+		goto end;
+	}
 	ptr_disk_type = wrapper_get_disk_type();
 	if (!ptr_disk_type) {
-		return -ENOSYS;
+		ret = -ENOSYS;
+		goto end;
 	}
 	class_dev_iter_init(&iter, ptr_block_class, NULL, ptr_disk_type);
 	while ((dev = class_dev_iter_next(&iter))) {
-		struct disk_part_iter piter;
 		struct gendisk *disk = dev_to_disk(dev);
-		LTTNG_PART_STRUCT_TYPE *part;
 
 		/*
 		 * Don't show empty devices or things that have been
@@ -272,22 +329,11 @@ int lttng_enumerate_block_devices(struct lttng_session *session)
 		    (disk->flags & GENHD_FL_SUPPRESS_PARTITION_INFO))
 			continue;
 
-		disk_part_iter_init(&piter, disk, DISK_PITER_INCL_PART0);
-		while ((part = disk_part_iter_next(&piter))) {
-			char name_buf[BDEVNAME_SIZE];
-
-			if (lttng_get_part_name(disk, part, name_buf) == -ENOSYS) {
-				disk_part_iter_exit(&piter);
-				class_dev_iter_exit(&iter);
-				return -ENOSYS;
-			}
-			trace_lttng_statedump_block_device(session,
-					lttng_get_part_devt(part), name_buf);
-		}
-		disk_part_iter_exit(&piter);
+		ret = lttng_statedump_each_block_device(session, disk);
 	}
 	class_dev_iter_exit(&iter);
-	return 0;
+end:
+	return ret;
 }
 
 #ifdef CONFIG_INET
