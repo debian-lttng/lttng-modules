@@ -77,7 +77,8 @@ int _lttng_field_statedump(struct lttng_session *session,
 
 void synchronize_trace(void)
 {
-#if (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(5,1,0))
+#if (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(5,1,0) || \
+	LTTNG_RHEL_KERNEL_RANGE(4,18,0,193,0,0, 4,19,0,0,0,0))
 	synchronize_rcu();
 #else
 	synchronize_sched();
@@ -704,6 +705,8 @@ struct lttng_event *_lttng_event_create(struct lttng_channel *chan,
 		event_return->enabled = 0;
 		event_return->registered = 1;
 		event_return->instrumentation = itype;
+		INIT_LIST_HEAD(&event_return->bytecode_runtime_head);
+		INIT_LIST_HEAD(&event_return->enablers_ref_head);
 		/*
 		 * Populate lttng_event structure before kretprobe registration.
 		 */
@@ -919,6 +922,8 @@ int _lttng_event_unregister(struct lttng_event *event)
 static
 void _lttng_event_destroy(struct lttng_event *event)
 {
+	struct lttng_enabler_ref *enabler_ref, *tmp_enabler_ref;
+
 	switch (event->instrumentation) {
 	case LTTNG_KERNEL_TRACEPOINT:
 		lttng_event_put(event->desc);
@@ -944,6 +949,11 @@ void _lttng_event_destroy(struct lttng_event *event)
 	}
 	list_del(&event->list);
 	lttng_destroy_context(event->ctx);
+	lttng_free_event_filter_runtime(event);
+	/* Free event enabler refs */
+	list_for_each_entry_safe(enabler_ref, tmp_enabler_ref,
+				 &event->enablers_ref_head, node)
+		kfree(enabler_ref);
 	kmem_cache_free(event_cache, event);
 }
 
@@ -3087,6 +3097,9 @@ static int __init lttng_events_init(void)
 #else
 		"");
 #endif
+#ifdef CONFIG_LTTNG_EXPERIMENTAL_BITWISE_ENUM
+	printk(KERN_NOTICE "LTTng: Experimental bitwise enum enabled.\n");
+#endif /* CONFIG_LTTNG_EXPERIMENTAL_BITWISE_ENUM */
 	return 0;
 
 error_hotplug:
