@@ -1,5 +1,5 @@
 #!/bin/bash
-# SPDX-License-Identifier: (GPL-2.0 OR LGPL-2.1)
+# SPDX-License-Identifier: (GPL-2.0-only OR LGPL-2.1-only)
 
 set -e
 
@@ -15,7 +15,7 @@ KERNEL_DIR="$(readlink --canonicalize-existing "$1")"
 ln -sf "$(pwd)" "${KERNEL_DIR}/lttng"
 
 # Graft ourself to the kernel build system
-echo 'source "lttng/Kconfig"' >> "${KERNEL_DIR}/Kconfig"
+echo 'source "lttng/src/Kconfig"' >> "${KERNEL_DIR}/Kconfig"
 sed -i 's#+= kernel/#+= kernel/ lttng/#' "${KERNEL_DIR}/Makefile"
 
 echo >&2

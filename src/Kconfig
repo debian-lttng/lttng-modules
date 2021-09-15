@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: (GPL-2.0-only or LGPL-2.1-only)
+
+config LTTNG
+	tristate "LTTng support"
+	default m
+	select TRACING
+	help
+	  LTTng is an open source tracing framework for Linux.
+
+	  See https://lttng.org/
+
+	  To compile as a set of modules, choose M here. To compile into
+	  the Linux kernel image, choose Y.
+
+	  If unsure, say N.
+
+config LTTNG_EXPERIMENTAL_BITWISE_ENUM
+	bool "LTTng experimental bitwise enum support"
+	default n
+	depends on LTTNG
+	help
+	  Enable experimental bitwise enumerations. The traces produced with
+	  this option enabled will generate warnings when read by trace
+	  viewers with default options.
+
+	  If unsure, say N.
+
+source "lttng/src/tests/Kconfig"
