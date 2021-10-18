@@ -20,6 +20,7 @@ override_dh_auto_install:
 
 override_dh_install:
 	dh_install -Xdebian/ \
+		-Xdoc/lttng-modules-design.txt \
 		-Xgpl-2.0.txt \
 		-Xlgpl-2.1.txt \
 		-XLICENSE \
