@@ -1,3 +1,14 @@
+lttng-modules (2.13.0-1) unstable; urgency=medium
+
+  * [d3af6a6] New upstream version 2.13.0
+  * [917bbe8] Refreshed patches for 2.13
+  * [cf4c5cb] Bump watch file version to 4
+  * [1902e3b] Update debian/copyright
+  * [049e5c3] Exclude new docs from dkms package
+  * [219cd42] Update dkms config
+
+ -- Michael Jeanson <mjeanson@debian.org>  Mon, 18 Oct 2021 15:45:42 -0400
+
 lttng-modules (2.12.5-1) unstable; urgency=medium
 
   * [8e0b514] New upstream version 2.12.5
