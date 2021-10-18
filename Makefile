@@ -1,141 +1,11 @@
-# SPDX-License-Identifier: (GPL-2.0 or LGPL-2.1)
+# SPDX-License-Identifier: (GPL-2.0-only or LGPL-2.1-only)
 
 ifneq ($(KERNELRELEASE),)
 
-  # This part of the Makefile is used when called by the kernel build system
-  # and defines the modules to be built.
+# This part of the Makefile is used when called by the kernel build system
+# and defines the modules to be built.
 
-  ifdef CONFIG_LOCALVERSION	# Check if dot-config is included.
-    ifeq ($(CONFIG_TRACEPOINTS),)
-      $(error The option CONFIG_TRACEPOINTS needs to be enabled in your kernel configuration)
-    endif # CONFIG_TRACEPOINTS
-  endif # ifdef CONFIG_LOCALVERSION
-
-  TOP_LTTNG_MODULES_DIR := $(shell dirname $(lastword $(MAKEFILE_LIST)))
-
-  lttng_check_linux_version = $(shell pwd)/include/linux/version.h
-  lttng_check_generated_linux_version = $(shell pwd)/include/generated/uapi/linux/version.h
-
-  #
-  # Check for stale version.h, which can be a leftover from an old Linux
-  # kernel tree moved to a newer kernel version, only pruned by make
-  # distclean.
-  #
-  ifneq ($(wildcard $(lttng_check_linux_version)),)
-    ifneq ($(wildcard $(lttng_check_generated_linux_version)),)
-      $(error Duplicate version.h files found in $(lttng_check_linux_version) and $(lttng_check_generated_linux_version). Consider running make distclean on your kernel, or removing the stale $(lttng_check_linux_version) file)
-    endif
-  endif
-
-  include $(TOP_LTTNG_MODULES_DIR)/Kbuild.common
-
-  ccflags-y += -I$(TOP_LTTNG_MODULES_DIR)
-
-  obj-$(CONFIG_LTTNG) += lttng-ring-buffer-client-discard.o
-  obj-$(CONFIG_LTTNG) += lttng-ring-buffer-client-overwrite.o
-  obj-$(CONFIG_LTTNG) += lttng-ring-buffer-metadata-client.o
-  obj-$(CONFIG_LTTNG) += lttng-ring-buffer-client-mmap-discard.o
-  obj-$(CONFIG_LTTNG) += lttng-ring-buffer-client-mmap-overwrite.o
-  obj-$(CONFIG_LTTNG) += lttng-ring-buffer-metadata-mmap-client.o
-  obj-$(CONFIG_LTTNG) += lttng-clock.o
-
-  obj-$(CONFIG_LTTNG) += lttng-tracer.o
-
-  obj-$(CONFIG_LTTNG) += lttng-wrapper.o
-
-  lttng-tracer-objs := lttng-events.o lttng-abi.o lttng-string-utils.o \
-                       lttng-probes.o lttng-context.o \
-                       lttng-context-pid.o lttng-context-procname.o \
-                       lttng-context-prio.o lttng-context-nice.o \
-                       lttng-context-vpid.o lttng-context-tid.o \
-                       lttng-context-vtid.o lttng-context-ppid.o \
-                       lttng-context-vppid.o lttng-context-cpu-id.o \
-                       lttng-context-uid.o \
-                       lttng-context-euid.o \
-                       lttng-context-suid.o \
-                       lttng-context-gid.o \
-                       lttng-context-egid.o \
-                       lttng-context-sgid.o \
-                       lttng-context-vuid.o \
-                       lttng-context-veuid.o \
-                       lttng-context-vsuid.o \
-                       lttng-context-vgid.o \
-                       lttng-context-vegid.o \
-                       lttng-context-vsgid.o \
-                       lttng-context-interruptible.o \
-                       lttng-context-need-reschedule.o \
-                       lttng-context-callstack.o lttng-calibrate.o \
-                       lttng-context-hostname.o \
-                       probes/lttng.o \
-                       lttng-tracker-id.o \
-                       lttng-filter.o lttng-filter-interpreter.o \
-                       lttng-filter-specialize.o \
-                       lttng-filter-validator.o \
-                       probes/lttng-probe-user.o \
-                       lttng-tp-mempool.o \
-
-  lttng-wrapper-objs := wrapper/page_alloc.o \
-                        wrapper/random.o \
-                        wrapper/trace-clock.o \
-                        wrapper/kallsyms.o \
-                        wrapper/irqdesc.o \
-                        wrapper/fdtable.o \
-                        lttng-wrapper-impl.o
-
-  ifneq ($(CONFIG_HAVE_SYSCALL_TRACEPOINTS),)
-    lttng-tracer-objs += lttng-syscalls.o
-  endif # CONFIG_HAVE_SYSCALL_TRACEPOINTS
-
-  ifneq ($(CONFIG_PERF_EVENTS),)
-    lttng-tracer-objs += lttng-context-perf-counters.o
-  endif # CONFIG_PERF_EVENTS
-
-  ifneq ($(CONFIG_PREEMPT_RT_FULL),)
-    lttng-tracer-objs += lttng-context-migratable.o
-    lttng-tracer-objs += lttng-context-preemptible.o
-  endif # CONFIG_PREEMPT_RT_FULL
-
-  ifneq ($(CONFIG_PREEMPT),)
-    lttng-tracer-objs += lttng-context-preemptible.o
-  endif
-
-  lttng-tracer-objs += $(shell \
-    if [ $(VERSION) -ge 4 \
-      -o \( $(VERSION) -eq 3 -a $(PATCHLEVEL) -ge 15 \) ] ; then \
-      echo "lttng-tracepoint.o" ; fi;)
-
-  lttng-tracer-objs += lttng-context-cgroup-ns.o
-
-  ifneq ($(CONFIG_IPC_NS),)
-    lttng-tracer-objs += lttng-context-ipc-ns.o
-  endif
-
-  ifneq ($(wildcard $(mnt_ns_dep)),)
-     lttng-tracer-objs += lttng-context-mnt-ns.o
-  endif
-
-  ifneq ($(CONFIG_NET_NS),)
-    lttng-tracer-objs += lttng-context-net-ns.o
-  endif
-
-  ifneq ($(CONFIG_PID_NS),)
-    lttng-tracer-objs += lttng-context-pid-ns.o
-  endif
-
-  ifneq ($(CONFIG_USER_NS),)
-    lttng-tracer-objs += lttng-context-user-ns.o
-  endif
-
-  ifneq ($(CONFIG_UTS_NS),)
-    lttng-tracer-objs += lttng-context-uts-ns.o
-  endif
-
-  obj-$(CONFIG_LTTNG) += lttng-statedump.o
-  lttng-statedump-objs := lttng-statedump-impl.o
-
-  obj-$(CONFIG_LTTNG) += probes/
-  obj-$(CONFIG_LTTNG) += lib/
-  obj-$(CONFIG_LTTNG) += tests/
+obj-$(CONFIG_LTTNG) += src/
 
 else # KERNELRELEASE
 
@@ -145,20 +15,45 @@ else # KERNELRELEASE
 
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 PWD := $(shell pwd)
-CFLAGS = $(EXTCFLAGS)
+
+# Experimental bitwise enum defaults to disabled.
+CONFIG_LTTNG_EXPERIMENTAL_BITWISE_ENUM ?= n
+
+# Emulate Kconfig behavior of setting defines for config options.
+LKCPPFLAGS = $(KCPPFLAGS)
+ifeq ($(CONFIG_LTTNG_EXPERIMENTAL_BITWISE_ENUM),y)
+LKCPPFLAGS += -DCONFIG_LTTNG_EXPERIMENTAL_BITWISE_ENUM=y
+endif
 
 default: modules
 
 modules:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_LTTNG=m CONFIG_LTTNG_CLOCK_PLUGIN_TEST=m modules
+	$(MAKE) -C $(KERNELDIR) M=$(PWD)/src \
+		CONFIG_LTTNG=m CONFIG_LTTNG_CLOCK_PLUGIN_TEST=m \
+		KCPPFLAGS='$(LKCPPFLAGS)' \
+		modules
 
 modules_install:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_LTTNG=m CONFIG_LTTNG_CLOCK_PLUGIN_TEST=m modules_install
+	$(MAKE) -C $(KERNELDIR) M=$(PWD)/src \
+		CONFIG_LTTNG=m CONFIG_LTTNG_CLOCK_PLUGIN_TEST=m \
+		KCPPFLAGS='$(LKCPPFLAGS)' \
+		modules_install
 
 clean:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
+	$(MAKE) -C $(KERNELDIR) M=$(PWD)/src clean
 
+# The following targets are used for development and debugging. They are not
+# part of the build system.
 %.i: %.c
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) CONFIG_LTTNG=m CONFIG_LTTNG_CLOCK_PLUGIN_TEST=m $@
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) \
+		CONFIG_LTTNG=m CONFIG_LTTNG_CLOCK_PLUGIN_TEST=m \
+		KCPPFLAGS='$(LKCPPFLAGS)' \
+		$@
+
+%.o: %.c
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) \
+		CONFIG_LTTNG=m CONFIG_LTTNG_CLOCK_PLUGIN_TEST=m \
+		KCPPFLAGS='$(LKCPPFLAGS)' \
+		$@
 
 endif # KERNELRELEASE
