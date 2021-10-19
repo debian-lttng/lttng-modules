@@ -6,6 +6,8 @@ include /usr/share/dpkg/pkg-info.mk
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
+DKMS_SRC_DIR := $(CURDIR)/debian/lttng-modules-dkms/usr/src/lttng-modules-$(DEB_VERSION_UPSTREAM)
+
 %:
 	dh $@ --with dkms
 
@@ -13,26 +15,12 @@ override_dh_dkms:
 	dh_dkms -V ${DEB_VERSION_UPSTREAM}
 
 override_dh_auto_install:
-	# Build install files for the dkms'ified sources
-	sed -e 's/CVERSION/${DEB_VERSION_UPSTREAM}/g' < debian/lttng-modules-dkms.install.in > debian/lttng-modules-dkms.install
-	sed -e 's/CVERSION/${DEB_VERSION_UPSTREAM}/g' < debian/lttng-modules-dkms.dkms.in > debian/lttng-modules-dkms.dkms
+	install -d $(DKMS_SRC_DIR)
+	cp -a Makefile extra_version include scripts src $(DKMS_SRC_DIR)
 	dh_auto_install
-
-override_dh_install:
-	dh_install -Xdebian/ \
-		-Xdoc/lttng-modules-design.txt \
-		-Xgpl-2.0.txt \
-		-Xlgpl-2.1.txt \
-		-XLICENSE \
-		-XTODO
 
 override_dh_auto_clean:
 	exit 0
 
 override_dh_auto_build:
 	exit 0
-
-override_dh_clean:
-	rm -f debian/lttng-modules-dkms.install
-	rm -f debian/lttng-modules-dkms.dkms
-	dh_clean
