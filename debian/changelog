@@ -1,3 +1,10 @@
+lttng-modules (2.13.0-2) unstable; urgency=medium
+
+  * [6d6009d] Update Salsa CI pipeline config
+  * [9c934f8] Update to debhelper compat 12
+
+ -- Michael Jeanson <mjeanson@debian.org>  Fri, 22 Oct 2021 12:08:28 -0400
+
 lttng-modules (2.13.0-1) unstable; urgency=medium
 
   * [d3af6a6] New upstream version 2.13.0
