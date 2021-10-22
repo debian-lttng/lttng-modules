@@ -1,3 +1,9 @@
+lttng-modules (2.13.0-2~ubuntu18.04.1) bionic; urgency=medium
+
+  * [94634ad] Prepare branch for bionic
+
+ -- Michael Jeanson <mjeanson@debian.org>  Fri, 22 Oct 2021 12:30:50 -0400
+
 lttng-modules (2.13.0-2) unstable; urgency=medium
 
   * [6d6009d] Update Salsa CI pipeline config
