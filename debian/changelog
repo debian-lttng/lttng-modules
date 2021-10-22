@@ -1,3 +1,9 @@
+lttng-modules (2.13.0-2~ubuntu20.04.1) focal; urgency=medium
+
+  * [c0364ee] Prepare branch for focal
+
+ -- Michael Jeanson <mjeanson@debian.org>  Fri, 22 Oct 2021 12:16:16 -0400
+
 lttng-modules (2.13.0-2) unstable; urgency=medium
 
   * [6d6009d] Update Salsa CI pipeline config
