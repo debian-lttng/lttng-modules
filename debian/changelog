@@ -1,3 +1,9 @@
+lttng-modules (2.13.1-1) unstable; urgency=medium
+
+  * [a4701a4] New upstream version 2.13.1
+
+ -- Michael Jeanson <mjeanson@debian.org>  Wed, 05 Jan 2022 14:08:28 -0500
+
 lttng-modules (2.13.0-2) unstable; urgency=medium
 
   * [6d6009d] Update Salsa CI pipeline config
