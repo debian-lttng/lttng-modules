@@ -1,3 +1,27 @@
+2022-03-07 (National Cereal Day) LTTng modules 2.13.2
+	* Fix: incorrect in/out direction for syscall exit
+	* fix: net: socket: rename SKB_DROP_REASON_SOCKET_FILTER (v5.17)
+	* fix: net: skb: introduce kfree_skb_reason() (v5.17)
+	* fix: random: rather than entropy_store abstraction, use global (v5.17)
+	* fix: btrfs: pass fs_info to trace_btrfs_transaction_commit (v5.17)
+	* fix: mm: compaction: fix the migration stats in trace_mm_compaction_migratepages() (v5.17)
+	* fix: block: remove the ->rq_disk field in struct request (v5.17)
+	* fix: block: remove GENHD_FL_SUPPRESS_PARTITION_INFO (v5.17)
+	* Copyright ownership transfer
+
+2022-01-05 (National Bird Day) LTTng modules 2.13.1
+	* fix: mm: move kvmalloc-related functions to slab.h (v5.16)
+	* fix: block: don't call blk_status_to_errno in blk_update_request (v5.16)
+	* fix: KVM: MMU: change tracepoints arguments to kvm_page_fault (v5.16)
+	* fix: KVM: x86: Get exit_reason as part of kvm_x86_ops.get_exit_info (v5.16)
+	* fix: isystem: delete global -isystem compile option (v5.16)
+	* fix: block: move block-related definitions out of fs.h (v5.16)
+	* Fix: syscall tracing: missing trigger actions
+	* Warn on event registration/unregistration failure
+	* fix: implicit-int error in EXPORT_SYMBOL_GPL
+	* fix: Revert "Makefile: Enable -Wimplicit-fallthrough for Clang" (v5.15)
+	* fix: cpu/hotplug: Remove deprecated CPU-hotplug functions. (v5.15)
+
 2021-08-02 (Ice Cream Sandwich Day) LTTng modules 2.13.0
 	* No change
 
