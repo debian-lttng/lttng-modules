@@ -1,3 +1,9 @@
+lttng-modules (2.13.2-1~ubuntu20.04.1) focal; urgency=medium
+
+  * [dbf1674] New upstream version 2.13.2
+
+ -- Michael Jeanson <mjeanson@debian.org>  Thu, 17 Mar 2022 11:13:57 -0400
+
 lttng-modules (2.13.0-2~ubuntu20.04.1) focal; urgency=medium
 
   * [c0364ee] Prepare branch for focal
