@@ -1,3 +1,13 @@
+lttng-modules (2.13.3-2) unstable; urgency=medium
+
+  [ Andreas Beckmann ]
+  * [1a7054d] switch to dh-sequence-dkms
+  * [b5f9942] switch to Testsuite: autopkgtest-pkg-dkms
+  * [8a3be1e] look for kernel config in $kernel_source_dir/.config first
+  * [eceedfa] the autopkgtests may run on Salsa CI
+
+ -- Michael Jeanson <mjeanson@debian.org>  Wed, 01 Jun 2022 10:40:03 -0400
+
 lttng-modules (2.13.3-1) unstable; urgency=medium
 
   * [74b0b84] New upstream version 2.13.3
