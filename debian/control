@@ -9,6 +9,7 @@ Rules-Requires-Root: no
 Vcs-Git: https://salsa.debian.org/debian/lttng-modules.git
 Vcs-Browser: https://salsa.debian.org/debian/lttng-modules/
 Homepage: https://lttng.org
+Testsuite: autopkgtest-pkg-dkms
 
 Package: lttng-modules-dkms
 Architecture: all
