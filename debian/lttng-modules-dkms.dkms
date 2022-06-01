@@ -5,7 +5,10 @@ i=0
 
 # Pretty horrible hack ...
 KCONFIG=false
-if [ -f /boot/config-$kernelver ]; then
+if [ -f $kernel_source_dir/.config ]; then
+    . $kernel_source_dir/.config
+    KCONFIG=true
+elif [ -f /boot/config-$kernelver ]; then
     . /boot/config-$kernelver
     KCONFIG=true
 fi
