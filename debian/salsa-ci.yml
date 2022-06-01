@@ -2,7 +2,3 @@
 include:
   - https://salsa.debian.org/salsa-ci-team/pipeline/raw/master/salsa-ci.yml
   - https://salsa.debian.org/salsa-ci-team/pipeline/raw/master/pipeline-jobs.yml
-
-variables:
-  # Salsa CI doesn't support isolation-machine
-  SALSA_CI_DISABLE_AUTOPKGTEST: 1
