@@ -167,7 +167,22 @@ ifneq ($(CONFIG_BTRFS_FS),)
   endif # $(wildcard $(btrfs_dep))
 endif # CONFIG_BTRFS_FS
 
-obj-$(CONFIG_LTTNG) += lttng-probe-compaction.o
+# A dependency on internal header 'mm/internal.h' was introduced in v5.18
+compaction_dep = $(srctree)/mm/internal.h
+compaction_dep_wildcard = $(wildcard $(compaction_dep))
+compaction_dep_check = $(shell \
+if [ \( $(VERSION) -ge 6 \
+   -o \( $(VERSION) -eq 5 -a $(PATCHLEVEL) -ge 18 \) \) -a \
+   -z "$(compaction_dep_wildcard)" ] ; then \
+  echo "warn" ; \
+else \
+  echo "ok" ; \
+fi ;)
+ifeq ($(compaction_dep_check),ok)
+  obj-$(CONFIG_LTTNG) += lttng-probe-compaction.o
+else
+  $(warning Files $(compaction_dep) not found. Probe "compaction" is disabled. Use full kernel source tree to enable it.)
+endif # $(wildcard $(compaction_dep))
 
 ifneq ($(CONFIG_EXT4_FS),)
   ext4_dep = $(srctree)/fs/ext4/*.h
@@ -187,13 +202,11 @@ ifneq ($(CONFIG_FRAME_WARN),0)
   CFLAGS_lttng-probe-printk.o += -Wframe-larger-than=2200
 endif
 
-obj-$(CONFIG_LTTNG) +=  $(shell \
-    if [ $(VERSION) -ge 4 \
-      -o \( $(VERSION) -eq 3 -a $(PATCHLEVEL) -ge 6 \) \
-      -o \( $(VERSION) -eq 3 -a $(PATCHLEVEL) -eq 5 -a $(SUBLEVEL) -ge 2 \) \
-      -o \( $(VERSION) -eq 3 -a $(PATCHLEVEL) -eq 4 -a $(SUBLEVEL) -ge 9 \) \
-      -o \( $(VERSION) -eq 3 -a $(PATCHLEVEL) -eq 0 -a $(SUBLEVEL) -ge 41 \) ] ; then \
-      echo "lttng-probe-random.o" ; fi;)
+# Introduced in v3.6, remove in v5.18
+random_dep = $(srctree)/include/trace/events/random.h
+ifneq ($(wildcard $(random_dep)),)
+  obj-$(CONFIG_LTTNG) += lttng-probe-random.o
+endif
 
 obj-$(CONFIG_LTTNG) +=  $(shell \
   if [ $(VERSION) -ge 4 \
