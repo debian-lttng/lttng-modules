@@ -1,3 +1,9 @@
+lttng-modules (2.13.4-1) unstable; urgency=medium
+
+  * [431cdf5] New upstream version 2.13.4
+
+ -- Michael Jeanson <mjeanson@debian.org>  Fri, 03 Jun 2022 16:15:35 -0400
+
 lttng-modules (2.13.3-2) unstable; urgency=medium
 
   [ Andreas Beckmann ]
