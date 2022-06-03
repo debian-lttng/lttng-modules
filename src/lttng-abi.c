@@ -730,7 +730,6 @@ long lttng_counter_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		return lttng_kernel_counter_clear(counter, indexes);
 	}
 	default:
-		WARN_ON_ONCE(1);
 		return -ENOSYS;
 	}
 }
@@ -1017,7 +1016,7 @@ ssize_t lttng_event_notifier_group_notif_read(struct file *filp, char __user *us
 
 	/* Finish copy of previous record */
 	if (*ppos != 0) {
-		if (read_count < count) {
+		if (count != 0) {
 			len = chan->iter.len_left;
 			read_offset = *ppos;
 			goto skip_get_next;
@@ -1097,7 +1096,8 @@ nodata:
 	chan->iter.len_left = 0;
 
 put_record:
-	lib_ring_buffer_put_current_record(buf);
+	if (*ppos == 0)
+		lib_ring_buffer_put_current_record(buf);
 	return read_count;
 }
 
