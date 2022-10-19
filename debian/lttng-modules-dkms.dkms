@@ -116,10 +116,14 @@ if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_BLOCK" ] && [ -n "$CONFIG_EVENT_TRAC
     i=$((i+1))
 fi
 
-BUILT_MODULE_NAME[$i]="lttng-probe-compaction"
-BUILT_MODULE_LOCATION[$i]="src/probes/"
-DEST_MODULE_LOCATION[$i]="/extra/probes"
-i=$((i+1))
+# A dependency on internal header 'mm/internal.h' was introduced in v5.18
+if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_COMPACTION" ] && \
+   ( [ "$VERSION" -eq 5 -a "$PATCHLEVEL" -lt 18 ] || [ "$VERSION" -lt 5 ] ); then
+    BUILT_MODULE_NAME[$i]="lttng-probe-compaction"
+    BUILT_MODULE_LOCATION[$i]="src/probes/"
+    DEST_MODULE_LOCATION[$i]="/extra/probes"
+    i=$((i+1))
+fi
 
 if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_GPIOLIB" ]; then
     BUILT_MODULE_NAME[$i]="lttng-probe-gpio"
@@ -147,10 +151,13 @@ if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_JBD2" ]; then
     i=$((i+1))
 fi
 
-BUILT_MODULE_NAME[$i]="lttng-probe-kmem"
-BUILT_MODULE_LOCATION[$i]="src/probes/"
-DEST_MODULE_LOCATION[$i]="/extra/probes"
-i=$((i+1))
+# A dependency on internal header 'mm/slab.h' was introduced in v6.0
+if [ "$VERSION" -lt 6 ]; then
+    BUILT_MODULE_NAME[$i]="lttng-probe-kmem"
+    BUILT_MODULE_LOCATION[$i]="src/probes/"
+    DEST_MODULE_LOCATION[$i]="/extra/probes"
+    i=$((i+1))
+fi
 
 if [ "$KCONFIG" = "true" ] && [ -n "$CONFIG_KVM" ]; then
     BUILT_MODULE_NAME[$i]="lttng-probe-kvm"
@@ -201,10 +208,12 @@ BUILT_MODULE_LOCATION[$i]="src/probes/"
 DEST_MODULE_LOCATION[$i]="/extra/probes"
 i=$((i+1))
 
-BUILT_MODULE_NAME[$i]="lttng-probe-random"
-BUILT_MODULE_LOCATION[$i]="src/probes/"
-DEST_MODULE_LOCATION[$i]="/extra/probes"
-i=$((i+1))
+if [ -f "$kernel_source_dir/include/trace/events/random.h" ]; then
+    BUILT_MODULE_NAME[$i]="lttng-probe-random"
+    BUILT_MODULE_LOCATION[$i]="src/probes/"
+    DEST_MODULE_LOCATION[$i]="/extra/probes"
+    i=$((i+1))
+fi
 
 BUILT_MODULE_NAME[$i]="lttng-probe-rcu"
 BUILT_MODULE_LOCATION[$i]="src/probes/"
