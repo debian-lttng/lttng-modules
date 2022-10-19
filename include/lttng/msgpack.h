@@ -50,10 +50,15 @@ int lttng_msgpack_write_signed_integer(
 		struct lttng_msgpack_writer *writer, int64_t value);
 int lttng_msgpack_write_str(struct lttng_msgpack_writer *writer,
 		const char *value);
+int lttng_msgpack_write_user_str(struct lttng_msgpack_writer *writer,
+		const char __user *value);
 int lttng_msgpack_begin_map(struct lttng_msgpack_writer *writer, size_t count);
 int lttng_msgpack_end_map(struct lttng_msgpack_writer *writer);
 int lttng_msgpack_begin_array(
 		struct lttng_msgpack_writer *writer, size_t count);
 int lttng_msgpack_end_array(struct lttng_msgpack_writer *writer);
+
+int lttng_msgpack_save_writer_pos(struct lttng_msgpack_writer *writer, uint8_t **pos);
+int lttng_msgpack_restore_writer_pos(struct lttng_msgpack_writer *writer, uint8_t *pos);
 
 #endif /* _LTTNG_KERNEL_MSGPACK_H */

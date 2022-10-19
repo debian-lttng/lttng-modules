@@ -57,6 +57,7 @@
 #include <asm/byteorder.h>
 
 #include <lttng/msgpack.h>
+#include <lttng/probe-user.h>
 
 #define INT8_MIN		(-128)
 #define INT16_MIN		(-32767-1)
@@ -108,6 +109,30 @@ static inline int lttng_msgpack_append_buffer(
 	}
 
 	memcpy(writer->write_pos, buf, length);
+	writer->write_pos += length;
+end:
+	return ret;
+}
+
+static inline int lttng_msgpack_append_user_buffer(
+		struct lttng_msgpack_writer *writer,
+		const uint8_t __user *ubuf,
+		size_t length)
+{
+	int ret = 0;
+
+	lttng_msgpack_assert(ubuf);
+
+	/* Ensure we are not trying to write after the end of the buffer. */
+	if (writer->write_pos + length > writer->end_write_pos) {
+		ret = -1;
+		goto end;
+	}
+
+	if (lttng_copy_from_user_check_nofault(writer->write_pos, ubuf, length)) {
+		ret = -1;
+		goto end;
+	}
 	writer->write_pos += length;
 end:
 	return ret;
@@ -281,6 +306,53 @@ end:
 	return ret;
 }
 
+static inline int lttng_msgpack_encode_user_fixstr(
+		struct lttng_msgpack_writer *writer,
+		const char __user *ustr,
+		uint8_t len)
+{
+	int ret;
+
+	lttng_msgpack_assert(len <= MSGPACK_FIXSTR_MAX_LENGTH);
+
+	ret = lttng_msgpack_append_u8(writer, MSGPACK_FIXSTR_ID_MASK | len);
+	if (ret)
+		goto end;
+
+	ret = lttng_msgpack_append_user_buffer(writer, (uint8_t __user *) ustr, len);
+	if (ret)
+		goto end;
+
+end:
+	return ret;
+}
+
+static inline int lttng_msgpack_encode_user_str16(
+		struct lttng_msgpack_writer *writer,
+		const char __user *ustr,
+		uint16_t len)
+{
+	int ret;
+
+	lttng_msgpack_assert(len > MSGPACK_FIXSTR_MAX_LENGTH);
+
+	ret = lttng_msgpack_append_u8(writer, MSGPACK_STR16_ID);
+	if (ret)
+		goto end;
+
+	ret = lttng_msgpack_append_u16(writer, len);
+	if (ret)
+		goto end;
+
+	ret = lttng_msgpack_append_user_buffer(writer, (uint8_t __user *) ustr, len);
+	if (ret)
+		goto end;
+
+end:
+	return ret;
+}
+
+
 int lttng_msgpack_begin_map(struct lttng_msgpack_writer *writer, size_t count)
 {
 	int ret;
@@ -349,6 +421,30 @@ int lttng_msgpack_write_str(struct lttng_msgpack_writer *writer,
 		ret = lttng_msgpack_encode_fixstr(writer, str, length);
 	else
 		ret = lttng_msgpack_encode_str16(writer, str, length);
+
+end:
+	return ret;
+}
+
+/*
+ * Provide the same behavior on lttng_strlen_user_inatomic page fault as the
+ * lttng ring buffer: truncate the last string character.
+ */
+int lttng_msgpack_write_user_str(struct lttng_msgpack_writer *writer,
+		const char __user *ustr)
+{
+	int ret;
+	size_t length = max_t(size_t, lttng_strlen_user_inatomic(ustr), 1);
+
+	if (length >= (1 << 16)) {
+		ret = -1;
+		goto end;
+	}
+
+	if (length <= MSGPACK_FIXSTR_MAX_LENGTH)
+		ret = lttng_msgpack_encode_user_fixstr(writer, ustr, length);
+	else
+		ret = lttng_msgpack_encode_user_str16(writer, ustr, length);
 
 end:
 	return ret;
@@ -460,6 +556,18 @@ int lttng_msgpack_write_signed_integer(struct lttng_msgpack_writer *writer, int6
 
 end:
 	return ret;
+}
+
+int lttng_msgpack_save_writer_pos(struct lttng_msgpack_writer *writer, uint8_t **pos)
+{
+	*pos = writer->write_pos;
+	return 0;
+}
+
+int lttng_msgpack_restore_writer_pos(struct lttng_msgpack_writer *writer, uint8_t *pos)
+{
+	writer->write_pos = pos;
+	return 0;
 }
 
 void lttng_msgpack_writer_init(struct lttng_msgpack_writer *writer,
