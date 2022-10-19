@@ -9,6 +9,96 @@
 #include <linux/types.h>
 #include <lttng/kernel-version.h>
 
+#if (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(6,0,0))
+
+#include <../../mm/slab.h>
+
+LTTNG_TRACEPOINT_EVENT_CLASS(kmem_alloc,
+
+	TP_PROTO(unsigned long call_site,
+		 const void *ptr,
+		 struct kmem_cache *s,
+		 size_t bytes_req,
+		 size_t bytes_alloc,
+		 gfp_t gfp_flags),
+
+	TP_ARGS(call_site, ptr, s, bytes_req, bytes_alloc, gfp_flags),
+
+	TP_FIELDS(
+		ctf_integer_hex(unsigned long, call_site, call_site)
+		ctf_integer_hex(const void *, ptr, ptr)
+		ctf_integer(size_t, bytes_req, bytes_req)
+		ctf_integer(size_t, bytes_alloc, bytes_alloc)
+		ctf_integer(gfp_t, gfp_flags, gfp_flags)
+		ctf_integer(bool, accounted, IS_ENABLED(CONFIG_MEMCG_KMEM) ?
+			((gfp_flags & __GFP_ACCOUNT) ||
+			(s && s->flags & SLAB_ACCOUNT)) : false)
+	)
+)
+
+LTTNG_TRACEPOINT_EVENT_INSTANCE_MAP(kmem_alloc, kmalloc,
+
+	kmem_kmalloc,
+
+	TP_PROTO(unsigned long call_site, const void *ptr, struct kmem_cache *s,
+		 size_t bytes_req, size_t bytes_alloc, gfp_t gfp_flags),
+
+	TP_ARGS(call_site, ptr, s, bytes_req, bytes_alloc, gfp_flags)
+)
+
+LTTNG_TRACEPOINT_EVENT_INSTANCE(kmem_alloc, kmem_cache_alloc,
+
+	TP_PROTO(unsigned long call_site, const void *ptr, struct kmem_cache *s,
+		 size_t bytes_req, size_t bytes_alloc, gfp_t gfp_flags),
+
+	TP_ARGS(call_site, ptr, s, bytes_req, bytes_alloc, gfp_flags)
+)
+
+LTTNG_TRACEPOINT_EVENT_CLASS(kmem_alloc_node,
+
+	TP_PROTO(unsigned long call_site,
+		 const void *ptr,
+		 struct kmem_cache *s,
+		 size_t bytes_req,
+		 size_t bytes_alloc,
+		 gfp_t gfp_flags,
+		 int node),
+
+	TP_ARGS(call_site, ptr, s, bytes_req, bytes_alloc, gfp_flags, node),
+
+	TP_FIELDS(
+		ctf_integer_hex(unsigned long, call_site, call_site)
+		ctf_integer_hex(const void *, ptr, ptr)
+		ctf_integer(size_t, bytes_req, bytes_req)
+		ctf_integer(size_t, bytes_alloc, bytes_alloc)
+		ctf_integer(gfp_t, gfp_flags, gfp_flags)
+		ctf_integer(int, node, node)
+		ctf_integer(bool, accounted, IS_ENABLED(CONFIG_MEMCG_KMEM) ?
+			((gfp_flags & __GFP_ACCOUNT) ||
+			(s && s->flags & SLAB_ACCOUNT)) : false)
+	)
+)
+
+LTTNG_TRACEPOINT_EVENT_INSTANCE_MAP(kmem_alloc_node, kmalloc_node,
+
+	kmem_kmalloc_node,
+
+	TP_PROTO(unsigned long call_site, const void *ptr,
+		 struct kmem_cache *s, size_t bytes_req, size_t bytes_alloc,
+		 gfp_t gfp_flags, int node),
+
+	TP_ARGS(call_site, ptr, s, bytes_req, bytes_alloc, gfp_flags, node)
+)
+
+LTTNG_TRACEPOINT_EVENT_INSTANCE(kmem_alloc_node, kmem_cache_alloc_node,
+
+	TP_PROTO(unsigned long call_site, const void *ptr,
+		 struct kmem_cache *s, size_t bytes_req, size_t bytes_alloc,
+		 gfp_t gfp_flags, int node),
+
+	TP_ARGS(call_site, ptr, s, bytes_req, bytes_alloc, gfp_flags, node)
+)
+#else
 LTTNG_TRACEPOINT_EVENT_CLASS(kmem_alloc,
 
 	TP_PROTO(unsigned long call_site,
@@ -86,6 +176,7 @@ LTTNG_TRACEPOINT_EVENT_INSTANCE(kmem_alloc_node, kmem_cache_alloc_node,
 
 	TP_ARGS(call_site, ptr, bytes_req, bytes_alloc, gfp_flags, node)
 )
+#endif
 
 #if (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(5,12,0))
 LTTNG_TRACEPOINT_EVENT_MAP(kfree,
@@ -218,6 +309,50 @@ LTTNG_TRACEPOINT_EVENT_MAP(mm_page_alloc, kmem_mm_page_alloc,
 	)
 )
 
+#if (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(5,19,0))
+LTTNG_TRACEPOINT_EVENT_CLASS(kmem_mm_page,
+
+	TP_PROTO(struct page *page, unsigned int order, int migratetype,
+			int percpu_refill),
+
+	TP_ARGS(page, order, migratetype, percpu_refill),
+
+	TP_FIELDS(
+		ctf_integer_hex(struct page *, page, page)
+		ctf_integer(unsigned long, pfn,
+			page ? page_to_pfn(page) : -1UL)
+		ctf_integer(unsigned int, order, order)
+		ctf_integer(int, migratetype, migratetype)
+		ctf_integer(int, percpu_refill, percpu_refill)
+	)
+)
+
+LTTNG_TRACEPOINT_EVENT_INSTANCE_MAP(kmem_mm_page, mm_page_alloc_zone_locked,
+
+	kmem_mm_page_alloc_zone_locked,
+
+	TP_PROTO(struct page *page, unsigned int order, int migratetype,
+			int percpu_refill),
+
+	TP_ARGS(page, order, migratetype, percpu_refill)
+)
+
+LTTNG_TRACEPOINT_EVENT_MAP(mm_page_pcpu_drain,
+
+	kmem_mm_page_pcpu_drain,
+
+	TP_PROTO(struct page *page, unsigned int order, int migratetype),
+
+	TP_ARGS(page, order, migratetype),
+
+	TP_FIELDS(
+		ctf_integer(unsigned long, pfn,
+			page ? page_to_pfn(page) : -1UL)
+		ctf_integer(unsigned int, order, order)
+		ctf_integer(int, migratetype, migratetype)
+	)
+)
+#else
 LTTNG_TRACEPOINT_EVENT_CLASS(kmem_mm_page,
 
 	TP_PROTO(struct page *page, unsigned int order, int migratetype),
@@ -250,6 +385,7 @@ LTTNG_TRACEPOINT_EVENT_INSTANCE_MAP(kmem_mm_page, mm_page_pcpu_drain,
 
 	TP_ARGS(page, order, migratetype)
 )
+#endif
 
 #if (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(3,19,2)	\
 	|| LTTNG_KERNEL_RANGE(3,14,36, 3,15,0)		\
