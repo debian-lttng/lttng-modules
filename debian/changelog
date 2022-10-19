@@ -1,3 +1,10 @@
+lttng-modules (2.13.7-1~ubuntu20.04.1) focal; urgency=medium
+
+  * [a85260b] New upstream version 2.13.7
+  * [703c42e] Update dkms config (Closes: #1019250)
+
+ -- Michael Jeanson <mjeanson@debian.org>  Wed, 19 Oct 2022 14:38:57 -0400
+
 lttng-modules (2.13.4-1~ubuntu20.04.1) focal; urgency=medium
 
   * [431cdf5] New upstream version 2.13.4
