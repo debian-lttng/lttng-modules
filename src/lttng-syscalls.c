@@ -32,6 +32,7 @@
 #include <lttng/events.h>
 #include <lttng/events-internal.h>
 #include <lttng/utils.h>
+#include <lttng/kernel-version.h>
 
 #include "lttng-syscalls.h"
 
@@ -43,7 +44,14 @@
 
 /* in_compat_syscall appears in kernel 4.6. */
 #ifndef in_compat_syscall
- #define in_compat_syscall()	is_compat_task()
+# define in_compat_syscall()	is_compat_task()
+#endif
+
+/* in_x32_syscall appears in kernel 4.7. */
+#if (LTTNG_LINUX_VERSION_CODE < LTTNG_KERNEL_VERSION(4,7,0))
+# ifdef CONFIG_X86_X32_ABI
+#  define in_x32_syscall()	is_x32_task()
+# endif
 #endif
 
 enum sc_type {
@@ -271,6 +279,12 @@ void syscall_entry_event_probe(void *__data, struct pt_regs *regs, long id)
 	const struct trace_syscall_entry *table, *entry;
 	size_t table_len;
 
+#ifdef CONFIG_X86_X32_ABI
+	if (in_x32_syscall()) {
+		/* x32 system calls are not supported. */
+		return;
+	}
+#endif
 	if (unlikely(in_compat_syscall())) {
 		struct lttng_syscall_filter *filter = chan->priv->parent.sc_filter;
 
@@ -508,6 +522,12 @@ void syscall_exit_event_probe(void *__data, struct pt_regs *regs, long ret)
 	size_t table_len;
 	long id;
 
+#ifdef CONFIG_X86_X32_ABI
+	if (in_x32_syscall()) {
+		/* x32 system calls are not supported. */
+		return;
+	}
+#endif
 	id = syscall_get_nr(current, regs);
 
 	if (unlikely(in_compat_syscall())) {
