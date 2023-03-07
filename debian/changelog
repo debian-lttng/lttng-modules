@@ -1,3 +1,10 @@
+lttng-modules (2.13.9-1) unstable; urgency=medium
+
+  * [2f1b62b] New upstream version 2.13.9
+    - Bugfix release, adds support for v6.2 and multiple stable kernels.
+
+ -- Michael Jeanson <mjeanson@debian.org>  Tue, 07 Mar 2023 14:12:32 -0500
+
 lttng-modules (2.13.8-1) unstable; urgency=medium
 
   * [813bc03] New upstream version 2.13.8
