@@ -1,3 +1,10 @@
+lttng-modules (2.13.10-1~ubuntu20.04.1) focal; urgency=medium
+
+  * [2f1b62b] New upstream version 2.13.9
+  * [9cf6ada] New upstream version 2.13.10
+
+ -- Michael Jeanson <mjeanson@debian.org>  Thu, 15 Jun 2023 14:08:37 -0400
+
 lttng-modules (2.13.8-1~ubuntu20.04.1) focal; urgency=medium
 
   * [813bc03] New upstream version 2.13.8
