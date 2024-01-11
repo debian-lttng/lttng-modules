@@ -103,13 +103,23 @@ unsigned long wrapper_kallsyms_lookup_name(const char *name)
 	if (!kallsyms_lookup_name_sym) {
 		kallsyms_lookup_name_sym = (void *)do_get_kallsyms();
 	}
-	if (kallsyms_lookup_name_sym)
-		return kallsyms_lookup_name_sym(name);
-	else {
+	if (kallsyms_lookup_name_sym) {
+		struct irq_ibt_state irq_ibt_state;
+		unsigned long ret;
+
+		irq_ibt_state = wrapper_irq_ibt_save();
+		ret = kallsyms_lookup_name_sym(name);
+		wrapper_irq_ibt_restore(irq_ibt_state);
+		return ret;
+	} else {
 		printk_once(KERN_WARNING "LTTng: requires kallsyms_lookup_name\n");
 		return 0;
 	}
 }
 EXPORT_SYMBOL_GPL(wrapper_kallsyms_lookup_name);
 
+#endif
+
+#if (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(5,4,0) && defined(CONFIG_ANDROID))
+MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
 #endif
