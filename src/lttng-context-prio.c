@@ -14,33 +14,28 @@
 #include <lttng/events-internal.h>
 #include <ringbuffer/frontend_types.h>
 #include <wrapper/vmalloc.h>
-#include <wrapper/kallsyms.h>
 #include <lttng/tracer.h>
-
-static
-int (*wrapper_task_prio_sym)(struct task_struct *t);
-
-int wrapper_task_prio_init(void)
-{
-	wrapper_task_prio_sym = (void *) kallsyms_lookup_funcptr("task_prio");
-	if (!wrapper_task_prio_sym) {
-		printk(KERN_WARNING "LTTng: task_prio symbol lookup failed.\n");
-		return -EINVAL;
-	}
-	return 0;
-}
+#include <lttng/kernel-version.h>
 
 /*
- * Canary function to check for 'task_prio()' at compile time.
- *
- * From 'include/linux/sched.h':
- *
- *   extern int task_prio(const struct task_struct *p);
+ * From kernel v3.0 to v3.8, MAX_RT_PRIO is defined in linux/sched.h.
+ * From kernel v3.9 to v3.14, MAX_RT_PRIO is defined in linux/sched/rt.h,
+ * which is not included by linux/sched.h (hence this work-around).
+ * From kernel v3.15 onwards, MAX_RT_PRIO is defined in linux/sched/prio.h,
+ * which is included by linux/sched.h.
  */
-__attribute__((unused)) static
-int __canary__task_prio(const struct task_struct *p)
+#if LTTNG_KERNEL_RANGE(3,9,0, 3,15,0)
+# include <linux/sched/rt.h>
+#endif
+
+/*
+ * task_prio() has been implemented as p->prio - MAX_RT_PRIO since at
+ * least kernel v3.0.
+ */
+static
+int wrapper_task_prio(struct task_struct *p)
 {
-	return task_prio(p);
+	return p->prio - MAX_RT_PRIO;
 }
 
 static
@@ -60,7 +55,7 @@ void prio_record(void *priv, struct lttng_kernel_probe_ctx *probe_ctx,
 {
 	int prio;
 
-	prio = wrapper_task_prio_sym(current);
+	prio = wrapper_task_prio(current);
 	chan->ops->event_write(ctx, &prio, sizeof(prio), lttng_alignof(prio));
 }
 
@@ -69,7 +64,7 @@ void prio_get_value(void *priv,
 		struct lttng_kernel_probe_ctx *lttng_probe_ctx,
 		struct lttng_ctx_value *value)
 {
-	value->u.s64 = wrapper_task_prio_sym(current);
+	value->u.s64 = wrapper_task_prio(current);
 }
 
 static const struct lttng_kernel_ctx_field *ctx_field = lttng_kernel_static_ctx_field(
