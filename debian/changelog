@@ -1,3 +1,10 @@
+lttng-modules (2.13.12-1~ubuntu18.04.1) bionic; urgency=medium
+
+  * [e8cef83] New upstream version 2.13.12
+  * [d1bf66f] Refresh patches for 2.13.12
+
+ -- Michael Jeanson <mjeanson@debian.org>  Fri, 22 Mar 2024 11:17:52 -0400
+
 lttng-modules (2.13.11-1~ubuntu18.04.1) bionic; urgency=medium
 
   * [91d897d] New upstream version 2.13.11
