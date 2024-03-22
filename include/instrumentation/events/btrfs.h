@@ -177,7 +177,30 @@ LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__inode, btrfs_inode_evict,
 )
 #endif
 
-#if (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(4,14,0))
+#if (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(6,8,0))
+
+LTTNG_TRACEPOINT_EVENT(btrfs_get_extent,
+
+	TP_PROTO(const struct btrfs_root *root, const struct btrfs_inode *inode,
+		const struct extent_map *map),
+
+	TP_ARGS(root, inode, map),
+
+	TP_FIELDS(
+		ctf_integer(u64, root_objectid, root->root_key.objectid)
+		ctf_integer(u64, ino, btrfs_ino(inode))
+		ctf_integer(u64, start, map->start)
+		ctf_integer(u64, len, map->len)
+		ctf_integer(u64, orig_start, map->orig_start)
+		ctf_integer(u64, block_start, map->block_start)
+		ctf_integer(u64, block_len, map->block_len)
+		ctf_integer(unsigned int, flags, map->flags)
+		ctf_integer(int, refs, refcount_read(&map->refs))
+		ctf_integer(unsigned int, compress_type, extent_map_compression(map))
+	)
+)
+
+#elif (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(4,14,0))
 
 LTTNG_TRACEPOINT_EVENT(btrfs_get_extent,
 
@@ -1609,7 +1632,42 @@ LTTNG_TRACEPOINT_EVENT(btrfs_delayed_ref_head,
 )
 #endif
 
-#if (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(4,14,0))
+#if (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(6,8,0))
+
+LTTNG_TRACEPOINT_EVENT_CLASS(btrfs__chunk,
+
+	TP_PROTO(const struct btrfs_fs_info *fs_info, const struct btrfs_chunk_map *map,
+		 u64 offset, u64 size),
+
+	TP_ARGS(fs_info, map, offset, size),
+
+	TP_FIELDS(
+		ctf_integer(int, num_stripes, map->num_stripes)
+		ctf_integer(u64, type, map->type)
+		ctf_integer(int, sub_stripes, map->sub_stripes)
+		ctf_integer(u64, offset, offset)
+		ctf_integer(u64, size, size)
+		ctf_integer(u64, root_objectid, fs_info->chunk_root->root_key.objectid)
+	)
+)
+
+LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__chunk,  btrfs_chunk_alloc,
+
+	TP_PROTO(const struct btrfs_fs_info *fs_info, const struct btrfs_chunk_map *map,
+		 u64 offset, u64 size),
+
+	TP_ARGS(fs_info, map, offset, size)
+)
+
+LTTNG_TRACEPOINT_EVENT_INSTANCE(btrfs__chunk,  btrfs_chunk_free,
+
+	TP_PROTO(const struct btrfs_fs_info *fs_info, const struct btrfs_chunk_map *map,
+		 u64 offset, u64 size),
+
+	TP_ARGS(fs_info, map, offset, size)
+)
+
+#elif (LTTNG_LINUX_VERSION_CODE >= LTTNG_KERNEL_VERSION(4,14,0))
 
 LTTNG_TRACEPOINT_EVENT_CLASS(btrfs__chunk,
 
