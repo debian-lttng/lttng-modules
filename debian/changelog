@@ -1,3 +1,9 @@
+lttng-modules (2.13.13-1~ubuntu22.04.1) jammy; urgency=medium
+
+  * [bc6f05d] New upstream version 2.13.13
+
+ -- Michael Jeanson <mjeanson@debian.org>  Thu, 23 May 2024 14:05:16 -0400
+
 lttng-modules (2.13.12-1~ubuntu22.04.1) jammy; urgency=medium
 
   * [e8cef83] New upstream version 2.13.12
