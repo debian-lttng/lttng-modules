@@ -1,3 +1,16 @@
+lttng-modules (2.13.13-2) unstable; urgency=medium
+
+  [ Andreas Beckmann ]
+  * [d5a1f81] fix kernel version parsing if there are only two numeric
+    components (Closes: #1074479)
+
+  [ Michael Jeanson ]
+  * [a5163d1] dkms: ftrace probe removed upstream
+  * [6f28872] Refresh upstream signing key
+  * [a96286a] Bump standards version to 4.6.2
+
+ -- Michael Jeanson <mjeanson@debian.org>  Fri, 05 Jul 2024 16:50:27 -0400
+
 lttng-modules (2.13.13-1) unstable; urgency=medium
 
   * [bc6f05d] New upstream version 2.13.13
