@@ -1,3 +1,11 @@
+lttng-modules (2.13.14-1~ubuntu24.04.1) noble; urgency=medium
+
+  * [1f8eb0c] New upstream version 2.13.14
+  * [2ed4108] Refresh patches for 2.13.14
+  * [7e09255] dkms: ftrace probe removed upstream
+
+ -- Michael Jeanson <mjeanson@debian.org>  Thu, 18 Jul 2024 14:06:11 -0400
+
 lttng-modules (2.13.13-1~ubuntu24.04.1) noble; urgency=medium
 
   * [03cd465] Prepare branch for noble
